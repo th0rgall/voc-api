@@ -183,7 +183,38 @@ class VocAPI {
         "lang": "en"
         }
         w.description ? nw["description"] = w.description : false;
-        w.example ? nw["example"] = { "text": w.example } : false;
+        const now = new Date();
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const pad = (c) => (c+'').length === 1 ? '0' + c : c+'';
+        const hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
+        const dateString = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()} at ${hhmm}.`;
+        const locationString = w.location ? `Added from URL: ${w.location} on ${dateString}` : undefined;
+        const isolatedDateString = `Added on ${dateString}`;
+        
+        // add description and URL if present
+        if (w.description) {
+            nw.description = w.description;
+            if (locationString) {
+                nw.description += '\n\n' + locationString;
+            } else {
+                nw.descripton += '\n\n' + isolatedDateString;
+            }
+        } else {
+            if (locationString) {
+                nw.description = locationString;
+            } else {
+                nw.description = isolatedDateString;
+            }
+        }
+
+        // add example sentence
+        if (w.example) {
+            nw.example = { "text": w.example };
+        } else if (w.sentence) {
+            nw.example = { "text": w.sentence};
+        } 
+
         return nw;
     }
 
