@@ -13,6 +13,62 @@ class VocAPI {
         this.listNameCache = {};
 
         this.loggedIn = false;
+
+        setReferrerInterceptor([
+            `${this.URLBASE}/lists/byprofile.json`, 
+            `${this.URLBASE}/progress/*`,
+            `${this.URLBASE}/lists/save.json`]);
+    }
+
+    /**
+     * 
+     * @param {*} method 
+     * @param {*} url 
+     * @param {*} options
+     *                  {
+     *                      referer: to set a specific referrer header,
+     *                      reponseType:        - default document
+     *                      credentials: boolean - default true 
+     *                  } 
+     * @param {*} data for POST or PUT 
+     */
+    http(method, url, options, data) {
+        return new Promise((resolve, reject) => {
+            let req = new XMLHttpRequest();
+            req.open(method.toUpperCase(), url, true);
+            // headers
+            req.withCredentials = true;
+            req.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+            let sendReg = /PUT|POST/i;
+            if (method.match(sendReg)) {
+                req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+            }
+            if (options) {
+                if (options.referer) {
+                    req.setRequestHeader("set-referer", refererUrl);
+                }
+                options.responseType ? req.responseType = options.responseType : 'document';
+                options.credentials ? req.withCredentials = options.credentials : true;
+            }
+            // generic response handler
+            req.onload = (response) => {
+                resolve(response);
+            };
+            // send request
+            if (method.match(sendReg)) {
+                req.send(data);
+            } else {
+                req.send();
+            }
+        });
+     }
+
+    static defaultResHandler(res) {
+        if (res.status == 200) {
+            return Promise.resolve(res.responseText);
+        } else if (req.status != 200) {
+            return Promise.reject(res.responseText)
+        }
     }
     
     /**
@@ -20,25 +76,17 @@ class VocAPI {
      */
     checkLogin() {
         if (!this.loggedIn) {
-            const requestUrl = `${this.URLBASE}/account/progress`;
-            var req = new XMLHttpRequest();
-            req.open("GET", requestUrl, true);
-            //req.withCredentials = true;
-            req.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-            req.responseType = "json";
-            
-            return new Promise((resolve, reject) => {
-                req.onload = function () {
-                    if (req.responseURL !== requestUrl) { // response url was not same as requested url: 302 login redirect happened
-                        reject('not logged in');
+            return http('GET', `${this.URLBASE}/account/progress`, {})
+                .then(res => {
+                    if (res.responseURL !== requestUrl) { 
+                        // response url was not same as requested url: 302 login redirect happened
+                        return Promise.reject('not logged in');
                     } else {
                         loggedIn = true;
-                        resolve('already logged in');
+                        return Promise.resolve('already logged in');
                     }
-                }
-                req.send();
-            })
-        } else {
+                });
+         } else {
             return Promise.resolve('already logged in');
         }
     }
@@ -93,7 +141,8 @@ class VocAPI {
      * 
      * Primary meanings are, for every meaning, the first form of a given part of speech
      */
-    getDefinition(word) {
+    getDefinition(word) 
+    {
         /* stub */
         return "Not implemented."
     }
@@ -102,78 +151,189 @@ class VocAPI {
      * 
      */
     getLists() {
-        return new Promise( (resolve, reject) => {
-            const refererUrl = `${this.URLBASE}/dictionary/hacker`; 
-            const requestUrl = `${this.URLBASE}/lists/byprofile.json`;
-
-            // options: name, createdate, wordcount, activitydate TODO: make options
-            let sortBy = "modifieddate"
-
-            VocAPI.withModifiedReferrer(refererUrl, requestUrl, (detachHook) => {
-                var req = new XMLHttpRequest();
-                req.open("GET", requestUrl, true);
-                req.withCredentials = true;
-                req.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-                req.responseType = "json";
-                // TODO: this versus onload?
-                req.onreadystatechange = () => {
-                    if (req.readyState == 4 && req.status == 200) {
-                        detachHook();
-                        
-                        const lists = req.response.result.wordlists
-                            .filter(wl => wl.owner)
-                            .sort((a,b) => a[sortBy] > b[sortBy] ? -1 : 1); // high to low
-                        
-                        // fill cache with names
-                        lists.forEach(wl => {
-                            this.listNameCache[wl.wordlistid] = wl.name;
-                        })
-                        resolve(lists);
-                    }
-                    else if (req.status != 200) {
-                        console.log(`Error: ` + req.responseText);
-                        detachHook();
-                        reject();
-                    }
+        return http('GET', `${this.URLBASE}/lists/byprofile.json`, {
+                referer: `${this.URLBASE}/dictionary/hacker`,
+                responseType: 'json'
+            }).then((res) => {
+                // options: name, createdate, wordcount, activitydate TODO: make options
+                let sortBy = "modifieddate";
+                if (res.status == 200) {
+                    const lists = res.response.result.wordlists
+                        .filter(wl => wl.owner)
+                        .sort((a,b) => a[sortBy] > b[sortBy] ? -1 : 1); // high to low
+                    
+                    // fill cache with names
+                    lists.forEach(wl => {
+                        this.listNameCache[wl.wordlistid] = wl.name;
+                    })
+                    return Promise.resolve(lists);
+                } else {
+                    console.log(`Error: ` + res.responseText);
+                    return Promise.reject();
                 }
-                req.send();
-                }); 
+            });
+   }
+
+    /**
+     * 
+     */
+    progress(word) {
+        return http("POST", `${this.URLBASE}/progress/progress.json`, {
+                referer: `${this.URLBASE}/dictionary/${word}`,
+                responseType: 'json' 
+            }, `word=${word}`).then((res) => {
+                if (res.status = 200) {
+                    if (res.response.lrn === false ) {
+                        return Promise.reject('Not learnable');
+                    } else {
+                        const prog = res.response;
+                        const response =  {
+                            "word": prog.word,
+                            "progress": prog.prg,
+                            "priority": prog.pri,
+                            "lists": prog.ld, // [{"current":false,"listId":2137002,"wordcount":87,"priority":5,"progress":0.410468,"name":"In The Wild"}]
+                            "pos": prog.pos,
+                            // I think prog.dif is individual diff, prog.diff is global diff
+                            "diff": prog.dif ? prog.dif : prog.diff,
+                            "def": prog.def
+                            };
+                        return Promise.resolve(response);
+                    }
+                } else {
+                    return Promise.reject('Bad response');
+                }
+        });
+    }
+
+    /**
+     *  
+     * @param {*} word 
+     * @param {*} priority afaik: -1 for low priority, 0 for auto, 1 for  
+     */
+    setPriority(word, priority) {
+        return http('POST', `${URLBASE}/progress/setpriority.json`, {
+            referer: `${URLBASE}/dictionary/${word}`
+        }, VocAPI.getFormData({word: word, priority: priority})).then(defaultResHandler);
+        // todo: check response & adjust response handler for bad requests/responses
+    }
+
+    /**
+     * Gives possible words for a search term 
+     * @param {*} searchTerm searchterm
+     * @returns a list of suggestion objects in the  form: 
+     * {
+     *    "word": string word,
+     *    "lang": string lang - probably 'en',
+     *    "synsetid": string (number) the id of the 'meaning' of the word - multiple meanings are possible!
+     *    "frequency": string (number) I dunno. Frequency of appearance in texts, like shown on definition pages?
+     *    "definition": string - short definition of the word 
+     * }
+     * 
+     * TODO: you can do search=word:"word" for an exact search
+     */
+    autoComplete(searchTerm) {
+        return http('GET', `${URLBASE}/dictionary/autocomplete?${VocAPI.getFormData({search: searchTerm})}`)
+        .then(res => {
+            let suggestions = []
+            let lis = res.response.querySelectorAll('li');
+            for (let i = 0; i < lis.length; i ++) {
+                let el = lis[i];
+                let suggestion = {};
+                suggestion.lang = el.getAttribute('lang');
+                suggestion.synsetid = el.getAttribute('synsetid');
+                suggestion.word = el.getAttribute('word');
+                suggestion.frequency = el.getAttribute('freq');
+                suggestion.definition = el.firstChild.children[2].textContent;
+                suggestions.push(suggestion);
+            }
+            return Promise.resolve([suggestions]);
+        });
+    }
+
+    /**
+     * 
+     */
+    grabWords(text) {
+        // TODO NOT IMPLEMENTED
+    }
+
+    /**
+     * Corrects the word with the nearest available word in Vocabulary.com
+     * Rejects if no word was found.
+     * @param {*} word 
+     */
+    correctWord(word) {
+        return autoComplete(word).then(suggestions => {
+            if (suggestions) {
+                return Promise.resolve(suggestions[0].word);
+                // TODO: do a manual similarity/family test before passing through?
+            } else {
+                return Promise.reject('not found in Vocabulary.com');
+            }
+        });
+    }
+
+    /**
+     * Provides a measure for the similarity of two words.
+     * @param {*} word1 
+     * @param {*} word2
+     * @returns float between 0 and 1. 1 = one included in the other, 0 = completely unsimilar 
+     */
+    similar(word1, word2) {
+        /* test:
+        > sim2('speak','spozc')
+        0.4000000000000001
+        > sim2('pre-eminent','pre-eminently')
+        1
+        > sim2('pre-eminentitious','pre-eminently')
+        0.8461538461538463
+        > sim2('cooks','cooking')
+        0.8
+        */
+
+        // TODO: should give slightly more weight to first letters for inflections/conjugations 
+            // eg. speaks ~ speak
+            // pre-eminent ~ pre-eminently
+            // but this linear model should work too 
+        let similarity = 1;
+        let minLen = Math.min(word1.length, word2.length);
+        let step = 1 / ((minLen === 0) ? 1 : minLen); 
+        let i = 0, j = 0;
+        while ( i < word1.length && j < word2.length) {
+            if (word1[i] !== word2[j]) {
+               similarity -= step; 
+            }
+            i++; j++;
         }
-        );
+        return similarity;
+    }
+
+    /**
+     * bulk-correct a list of words 
+     * @param {*} words 
+     */
+    correctWords(words) {
+        // TODO NOT IMPLEMENTED
+        /*
+        1. grab words
+        2. run through in order with a similarity checker
+            - combine grabword with local word that is similar (>0.6), ala list merge
+            - skip local word that are highly unsimilar, add to not-supported list
+        3. return words with local comments etc + not-supported list
+        */
     }
 
     /**
      * @param wordToLearn as a plain word
      */
     startLearning(wordToLearn) {
-        return new Promise((resolve, reject) => {
-            console.log("Trying to learn " + wordToLearn)
-            const refererUrl = `${this.URLBASE}/dictionary/${wordToLearn}`; 
-            const requestUrl = `${this.URLBASE}/progress/startlearning.json`;
-        
-            VocAPI.withModifiedReferrer(refererUrl, requestUrl, (detachHook) => {
-              var req = new XMLHttpRequest();
-              req.open("POST", requestUrl, true);
-              req.withCredentials = true;
-              req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-              req.onreadystatechange = function () {
-                if (req.readyState == 4 && req.status == 200) {
-                    detachHook();
-                    resolve(req.responseText);
-                }
-                else if (req.status != 200) {
-                    detachHook();
-                    reject();
-                    console.log(`Error: ` + req.responseText);
-                }
-              }
-              req.send(`word=${wordToLearn}`);
-            });
-        });
+        return http('POST', `${this.URLBASE}/progress/startlearning.json`, 
+                {referer: `${this.URLBASE}/dictionary/${wordToLearn}`},`word=${wordToLearn}`)
+                .then(defaultResHandler);
     }
 
     /**
-     * Maps words from this interface's format to voc.com's format
+     * Maps word objects from this API interface's format to voc.com's format
      * Adds some obvious info
      * @param {} w 
      */
@@ -231,38 +391,13 @@ class VocAPI {
     * @param listId id of the listlist
     */ 
     addToList(words, listId) {
-        return new Promise((resolve, reject) => {
-            console.log("Trying to save " + words)
-            const refererUrl = `${this.URLBASE}/dictionary/${words[0]}`; 
-            const requestUrl = `${this.URLBASE}/lists/save.json`;
-          
-            VocAPI.withModifiedReferrer(refererUrl, requestUrl, (detachHook) => {
-              var req = new XMLHttpRequest();
-              req.open("POST", requestUrl, true);
-              req.withCredentials = true;
-              req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-              let wordObjects = words.map(VocAPI.wordMapper);
-
-              req.onload = function () {
-                if (req.status == 200) {
-                    console.log(req.responseText);
-                    detachHook();
-                    resolve(req.responseText);
-                }
-                else if (req.status != 200) {
-                    detachHook();
-                    reject(req.responseText);        
-                    console.log(`Error: ` + req.responseText);
-                }
-               }
-              const toSend = {
-                  "addwords": JSON.stringify(wordObjects),
-                  "id": listId 
-              }
-              req.send(VocAPI.getFormData(toSend));
-            });
-        });
-    }
+        return http('POST', `${this.URLBASE}/lists/save.json`, {
+                referer: `${this.URLBASE}/dictionary/${words[0]}` 
+            }, VocAPI.getFormData({
+                "addwords": JSON.stringify(words.map(VocAPI.wordMapper)),
+                "id": listId 
+            })).then(defaultResHandler);
+     }
 
     /** 
     * @param words an array of words to add to the new list
@@ -271,78 +406,40 @@ class VocAPI {
     * @param shared boolean that shows whether list should be shared or not
     */ 
     addToNewList(words, listName, description, shared) {
-        return new Promise((resolve, reject) => {
-            const refererUrl = `${this.URLBASE}/lists/vocabgrabber`; 
-            const requestUrl = `${this.URLBASE}/lists/save.json`;
-          
-            let listObj = {
-              //"words": words.map((w) => { return {"word": w} }),
-              "words": words.map(VocAPI.wordMapper),
-              "name": listName,
-              "description": description,
-              "action": "create",
-              "shared": shared
-            }
-          
-            VocAPI.withModifiedReferrer(refererUrl, requestUrl, (detachHook) => {
-              var req = new XMLHttpRequest();
-              req.open("POST", requestUrl, true);
-              req.responseType = "json";
-              req.withCredentials = true;
-              req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-          
-              req.onload = function () {
-                if (req.status == 200) {
-                    console.log(req.response);
-                    detachHook();
-                    resolve(req.response);                    
-                } else if (req.status != 200) {
-                    detachHook()
-                    console.log(`Error: ` + req.response);
-                    reject(req.response);
-                }
-               }
-              req.send(VocAPI.getFormData({'wordlist': JSON.stringify(listObj)}));
-            });
-        });
-    }
+        let listObj = {
+            //"words": words.map((w) => { return {"word": w} }),
+            "words": words.map(VocAPI.wordMapper),
+            "name": listName,
+            "description": description,
+            "action": "create",
+            "shared": shared
+         }
+
+        return http('POST', `${this.URLBASE}/lists/save.json`, `${this.URLBASE}/lists/vocabgrabber`,
+                {
+                    referer: `${this.URLBASE}/lists/vocabgrabber`,
+                    responseType: 'json' 
+                }, vocAPI.getFormData({'wordlist': JSON.stringify(listObj)})).then(defdefaultResHandler);
+     }
 
     static translation(requestUrl, modifiedReferrer) {
-        return new Promise((resolve, reject) => {
-            let action = (detachHook) => {
-                var req = new XMLHttpRequest();
-                req.withCredentials = false;
-                req.open("GET", requestUrl, true);
-                req.responseType = 'json';
-                req.onload = function () {
-                    if (detachHook) detachHook();
-                    if (req.status == 200) {
-                        resolve(req.response);
-                    }
-                    else if (req.status != 200) {
-                        reject();
-                    }
-                 }
-                req.send();
-            };
-            VocAPI.withModifiedReferrer(modifiedReferrer, requestUrl, action);
-        });
+        return http('GET', requestUrl, {
+                referer: modifiedReferrer,
+                credentials: false
+            }).then(defaultResHandler);
     }
 
     /**
      * Execute an function with a modified Referer header for browser requests
-     * @param {*} refererUrl the referer URL that will be injected
-     * @param {*} requestUrl the request URL's for which the header has to be injected
-     * @param {*} action the action (request) to be executed. 
-     *                  Gets passed a function that will detach the header modifier hook if called
+     * @param {*} requestUrls list of request URL match patters that need a referer change
      */
-    static withModifiedReferrer(refererUrl, requestUrl, action) {
+    setReferrerInterceptor(requestUrls) {
         function refererListener(details) {
-            const i = details.requestHeaders.findIndex(e => e.name.toLowerCase() == "referer");
+            const i = details.requestHeaders.findIndex(e => e.name.toLowerCase() == "set-referer");
+            // convert set-referer to Referer
             if (i != -1) {
-                details.requestHeaders[i].value = refererUrl;
-            } else {
-                details.requestHeaders.push({name: "Referer", value: refererUrl});
+                details.requestHeaders.push({name: "Referer", value: details.requestHeaders[i].value});
+                delete details.requestHeaders[i];
             }
             // Firefox uses promises
             // return Promise.resolve(details);
@@ -354,19 +451,10 @@ class VocAPI {
 
         // modify headers with webRequest hook
         chrome.webRequest.onBeforeSendHeaders.addListener(
-        refererListener, //  function
-        {urls: [requestUrl]}, // RequestFilter object
-        ["requestHeaders", "blocking"] //  extraInfoSpec
+            refererListener, //  function
+            {urls: this.interceptUrls}, // RequestFilter object
+            ["requestHeaders", "blocking"] //  extraInfoSpec
         );
-
-        // TODO:    why not hook detach after action? async?
-        //          hook should be detached after the request was sent, automatically   
-        action(() => {
-        // detach hook
-        if (chrome.webRequest.onBeforeSendHeaders.hasListener(refererListener)) {
-            chrome.webRequest.onBeforeSendHeaders.removeListener(refererListener)
-        }
-        });
     }
 
     /**
