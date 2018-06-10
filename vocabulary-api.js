@@ -378,7 +378,7 @@ class VocAPI {
             // loop over originally requested words
             for (let i = 0; i < words.length && resultIndex < resultWords.length; i++) {
                 let original = words[i];
-                if (original.word in notfound) {
+                if (notfound.indexOf(original.word) !== -1) {
                     continue;
                 }
                 /* TODO: not necessary: not learnable words are in 'words' --> treat them normally
@@ -464,6 +464,8 @@ class VocAPI {
     * [
         {
             "word":"kangaroo",
+            "location": 
+            "sentence": 
             "description":"Test kangaroo", 
             "example": "Kangaroo makes me boo"
         }
@@ -475,18 +477,17 @@ class VocAPI {
     addToList(words, listId) {
         // single word: use single word correction
         if (words && words.length === 1) {
-            const inword = words[0];
+            let inword = words[0];
             return this.correctWord(inword.word).then((word) => {
-                console.log(`${inword.word} corrected to ${word}`);
+                let outword = inword;
+                if (inword.word !== word) {
+                    console.log(`${inword.word} corrected to ${word}`);
+                    outword.word = word;
+                }
                 return this.http('POST', `${this.URLBASE}/lists/save.json`, {
                     referer: `${this.URLBASE}/dictionary/${words[0]}` 
                 }, VocAPI.getFormData({
-                    "addwords": JSON.stringify([
-                        {
-                            word: word, 
-                            description: inword.description ? inword.description : undefined,
-                            example: inword.example ? inword.example : undefined
-                         }].map(VocAPI.wordMapper)),
+                    "addwords": JSON.stringify([outword].map(VocAPI.wordMapper)),
                     "id": listId 
                 }))
                 .then(VocAPI.defaultResHandler)
