@@ -45,17 +45,21 @@ class VocAPI {
             if (method.match(sendReg)) {
                 req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
             }
+            // defaults
+            req.responseType = 'document';
+            req.withCredentials = true; 
+            // options
             if (options) {
                 if (options.referer) {
                     req.setRequestHeader("set-referer", options.referer);
                 }
-                options.responseType ? req.responseType = options.responseType : 'document';
-                options.credentials ? req.withCredentials = options.credentials : true;
+                if ( options.responseType ) req.responseType = options.responseType;
+                if ( options.credentials ) req.withCredentials = options.credentials;
             }
             // generic response handler
-            req.onload = (response) => {
-                resolve(response);
-            };
+            req.addEventListener("load", (response) => {
+                resolve(req);
+            });
             // send request
             if (method.match(sendReg)) {
                 req.send(data);
@@ -67,19 +71,11 @@ class VocAPI {
 
     static defaultResHandler(res) {
         if (res.status == 200) {
-            if (res.responseType === 'json') {
-                return Promise.resolve(res.response);
-            } else {
-                return Promise.resolve(res.responseText);
-                
-            }
+            return Promise.resolve(res.response);
+
         } else if (res.status != 200) {
-            if (res.responseType === 'json') {
-                return Promise.reject(res.response);
-            } else {
-                return Promise.reject(res.responseText);
-                
-            }        }
+            return Promise.reject(res.response);
+        }
     }
     
     /**
@@ -87,13 +83,14 @@ class VocAPI {
      */
     checkLogin() {
         if (!this.loggedIn) {
-            return this.http('GET', `${this.URLBASE}/account/progress`, {})
+            const requestUrl = `${this.URLBASE}/account/progress`;
+            return this.http('GET', requestUrl, {})
                 .then(res => {
                     if (res.responseURL !== requestUrl) { 
                         // response url was not same as requested url: 302 login redirect happened
                         return Promise.reject('not logged in');
                     } else {
-                        loggedIn = true;
+                        this.loggedIn = true;
                         return Promise.resolve('already logged in');
                     }
                 });
@@ -222,8 +219,8 @@ class VocAPI {
      * @param {*} priority afaik: -1 for low priority, 0 for auto, 1 for  
      */
     setPriority(word, priority) {
-        return this.http('POST', `${URLBASE}/progress/setpriority.json`, {
-            referer: `${URLBASE}/dictionary/${word}`
+        return this.http('POST', `${this.URLBASE}/progress/setpriority.json`, {
+            referer: `${this.URLBASE}/dictionary/${word}`
         }, VocAPI.getFormData({word: word, priority: priority})).then(VocAPI.defaultResHandler);
         // todo: check response & adjust response handler for bad requests/responses
     }
@@ -243,7 +240,7 @@ class VocAPI {
      * TODO: you can do search=word:"word" for an exact search
      */
     autoComplete(searchTerm) {
-        return this.http('GET', `${URLBASE}/dictionary/autocomplete?${VocAPI.getFormData({search: searchTerm})}`)
+        return this.http('GET', `${this.URLBASE}/dictionary/autocomplete?${VocAPI.getFormData({search: searchTerm})}`)
         .then(res => {
             let suggestions = []
             let lis = res.response.querySelectorAll('li');
@@ -257,7 +254,7 @@ class VocAPI {
                 suggestion.definition = el.firstChild.children[2].textContent;
                 suggestions.push(suggestion);
             }
-            return Promise.resolve([suggestions]);
+            return Promise.resolve(suggestions);
         });
     }
 
@@ -274,7 +271,7 @@ class VocAPI {
      * @param {*} word 
      */
     correctWord(word) {
-        return autoComplete(word).then(suggestions => {
+        return this.autoComplete(word).then(suggestions => {
             if (suggestions) {
                 return Promise.resolve(suggestions[0].word);
                 // TODO: do a manual similarity/family test before passing through?
@@ -402,14 +399,39 @@ class VocAPI {
         ]
         description and example are optional
     * @param listId id of the listlist
+    * @returns {"status":0,"result":listId} 0 is ok
     */ 
     addToList(words, listId) {
-        return this.http('POST', `${this.URLBASE}/lists/save.json`, {
+        if (words && words.length === 1) {
+            const inword = words[0];
+            return this.correctWord(inword.word).then((word) => {
+                console.log(`${inword.word} corrected to ${word}`);
+                return this.http('POST', `${this.URLBASE}/lists/save.json`, {
+                    referer: `${this.URLBASE}/dictionary/${words[0]}` 
+                }, VocAPI.getFormData({
+                    "addwords": JSON.stringify([
+                        {
+                            word: word, 
+                            description: inword.description ? inword.description : undefined,
+                            example: inword.example ? inword.example : undefined
+                         }].map(VocAPI.wordMapper)),
+                    "id": listId 
+                }))
+                .then(VocAPI.defaultResHandler)
+                .then((res) => {return Promise.resolve({
+                    original: inword,
+                    corrected: word
+                })}); 
+            });
+        } else if (words && words.length > 1) {
+            return this.http('POST', `${this.URLBASE}/lists/save.json`, {
                 referer: `${this.URLBASE}/dictionary/${words[0]}` 
             }, VocAPI.getFormData({
                 "addwords": JSON.stringify(words.map(VocAPI.wordMapper)),
                 "id": listId 
             })).then(VocAPI.defaultResHandler);
+        }
+
      }
 
     /** 
@@ -445,7 +467,7 @@ class VocAPI {
         return this.http('POST', `${this.URLBASE}/lists/delete.json`, {
             referer: `${this.URLBASE}/lists/${listId}/edit`
         }, VocAPI.getFormData({id: listId}))
-        .then(defaultResHandler);
+        .then(VocAPI.defaultResHandler);
     }
 
 
@@ -462,7 +484,7 @@ class VocAPI {
         return this.http('POST', `${this.URLBASE}/lists/load.json`, {
             referer: `${this.URLBASE}/dictionary/hack`
         }, VocAPI.getFormData({id: listId}))
-        .then(defaultResHandler);
+        .then(VocAPI.defaultResHandler);
     }
 
     /**
