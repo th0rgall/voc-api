@@ -14,10 +14,12 @@ class VocAPI {
 
         this.loggedIn = false;
 
-        setReferrerInterceptor([
-            `${this.URLBASE}/lists/byprofile.json`, 
+        this.setReferrerInterceptor([
             `${this.URLBASE}/progress/*`,
-            `${this.URLBASE}/lists/save.json`]);
+            `${this.URLBASE}/lists/byprofile.json`, 
+            `${this.URLBASE}/lists/save.json`,
+            `${this.URLBASE}/lists/delete.json`,
+            `${this.URLBASE}/lists/load.json`]);
     }
 
     /**
@@ -45,7 +47,7 @@ class VocAPI {
             }
             if (options) {
                 if (options.referer) {
-                    req.setRequestHeader("set-referer", refererUrl);
+                    req.setRequestHeader("set-referer", options.referer);
                 }
                 options.responseType ? req.responseType = options.responseType : 'document';
                 options.credentials ? req.withCredentials = options.credentials : true;
@@ -65,10 +67,19 @@ class VocAPI {
 
     static defaultResHandler(res) {
         if (res.status == 200) {
-            return Promise.resolve(res.responseText);
-        } else if (req.status != 200) {
-            return Promise.reject(res.responseText)
-        }
+            if (res.responseType === 'json') {
+                return Promise.resolve(res.response);
+            } else {
+                return Promise.resolve(res.responseText);
+                
+            }
+        } else if (res.status != 200) {
+            if (res.responseType === 'json') {
+                return Promise.reject(res.response);
+            } else {
+                return Promise.reject(res.responseText);
+                
+            }        }
     }
     
     /**
@@ -76,7 +87,7 @@ class VocAPI {
      */
     checkLogin() {
         if (!this.loggedIn) {
-            return http('GET', `${this.URLBASE}/account/progress`, {})
+            return this.http('GET', `${this.URLBASE}/account/progress`, {})
                 .then(res => {
                     if (res.responseURL !== requestUrl) { 
                         // response url was not same as requested url: 302 login redirect happened
@@ -151,7 +162,7 @@ class VocAPI {
      * 
      */
     getLists() {
-        return http('GET', `${this.URLBASE}/lists/byprofile.json`, {
+        return this.http('GET', `${this.URLBASE}/lists/byprofile.json`, {
                 referer: `${this.URLBASE}/dictionary/hacker`,
                 responseType: 'json'
             }).then((res) => {
@@ -178,7 +189,7 @@ class VocAPI {
      * 
      */
     progress(word) {
-        return http("POST", `${this.URLBASE}/progress/progress.json`, {
+        return this.http("POST", `${this.URLBASE}/progress/progress.json`, {
                 referer: `${this.URLBASE}/dictionary/${word}`,
                 responseType: 'json' 
             }, `word=${word}`).then((res) => {
@@ -211,9 +222,9 @@ class VocAPI {
      * @param {*} priority afaik: -1 for low priority, 0 for auto, 1 for  
      */
     setPriority(word, priority) {
-        return http('POST', `${URLBASE}/progress/setpriority.json`, {
+        return this.http('POST', `${URLBASE}/progress/setpriority.json`, {
             referer: `${URLBASE}/dictionary/${word}`
-        }, VocAPI.getFormData({word: word, priority: priority})).then(defaultResHandler);
+        }, VocAPI.getFormData({word: word, priority: priority})).then(VocAPI.defaultResHandler);
         // todo: check response & adjust response handler for bad requests/responses
     }
 
@@ -232,7 +243,7 @@ class VocAPI {
      * TODO: you can do search=word:"word" for an exact search
      */
     autoComplete(searchTerm) {
-        return http('GET', `${URLBASE}/dictionary/autocomplete?${VocAPI.getFormData({search: searchTerm})}`)
+        return this.http('GET', `${URLBASE}/dictionary/autocomplete?${VocAPI.getFormData({search: searchTerm})}`)
         .then(res => {
             let suggestions = []
             let lis = res.response.querySelectorAll('li');
@@ -317,8 +328,10 @@ class VocAPI {
         /*
         1. grab words
         2. run through in order with a similarity checker
+            --> use the 'notfound' key to verify / preprocess ?
+            --> 'notlearnable' key exists too (can add and will be in list, but not learnable)
             - combine grabword with local word that is similar (>0.6), ala list merge
-            - skip local word that are highly unsimilar, add to not-supported list
+            - skip local word that are highly unsimilar, add to not-supported list)
         3. return words with local comments etc + not-supported list
         */
     }
@@ -327,9 +340,9 @@ class VocAPI {
      * @param wordToLearn as a plain word
      */
     startLearning(wordToLearn) {
-        return http('POST', `${this.URLBASE}/progress/startlearning.json`, 
+        return this.http('POST', `${this.URLBASE}/progress/startlearning.json`, 
                 {referer: `${this.URLBASE}/dictionary/${wordToLearn}`},`word=${wordToLearn}`)
-                .then(defaultResHandler);
+                .then(VocAPI.defaultResHandler);
     }
 
     /**
@@ -391,12 +404,12 @@ class VocAPI {
     * @param listId id of the listlist
     */ 
     addToList(words, listId) {
-        return http('POST', `${this.URLBASE}/lists/save.json`, {
+        return this.http('POST', `${this.URLBASE}/lists/save.json`, {
                 referer: `${this.URLBASE}/dictionary/${words[0]}` 
             }, VocAPI.getFormData({
                 "addwords": JSON.stringify(words.map(VocAPI.wordMapper)),
                 "id": listId 
-            })).then(defaultResHandler);
+            })).then(VocAPI.defaultResHandler);
      }
 
     /** 
@@ -407,7 +420,6 @@ class VocAPI {
     */ 
     addToNewList(words, listName, description, shared) {
         let listObj = {
-            //"words": words.map((w) => { return {"word": w} }),
             "words": words.map(VocAPI.wordMapper),
             "name": listName,
             "description": description,
@@ -415,18 +427,42 @@ class VocAPI {
             "shared": shared
          }
 
-        return http('POST', `${this.URLBASE}/lists/save.json`, `${this.URLBASE}/lists/vocabgrabber`,
+        return this.http('POST', `${this.URLBASE}/lists/save.json`,
                 {
                     referer: `${this.URLBASE}/lists/vocabgrabber`,
                     responseType: 'json' 
-                }, vocAPI.getFormData({'wordlist': JSON.stringify(listObj)})).then(defdefaultResHandler);
+                }, VocAPI.getFormData({'wordlist': JSON.stringify(listObj)})).then(VocAPI.defaultResHandler);
      }
 
     static translation(requestUrl, modifiedReferrer) {
-        return http('GET', requestUrl, {
+        return this.http('GET', requestUrl, {
                 referer: modifiedReferrer,
                 credentials: false
-            }).then(defaultResHandler);
+            }).then(VocAPI.defaultResHandler);
+    }
+
+    deleteList(listId) {
+        return this.http('POST', `${this.URLBASE}/lists/delete.json`, {
+            referer: `${this.URLBASE}/lists/${listId}/edit`
+        }, VocAPI.getFormData({id: listId}))
+        .then(defaultResHandler);
+    }
+
+
+    /**
+     * 
+     * @param 
+     * @returns
+        [{"word":"zilch","lang":"en",
+        "description":"Added from URL: https://forums.macrumors.com/threads/usb-c-powerba… on Wednesday 6 June 2018 at 14:08.",
+        "example":{"text":"So far, zilch.","offsets":[8,13]},"definition":"a quantity of no importance","shortdefinition":"a quantity of no importance",
+        "audio":["D/15IWYVT54ZU23"],"ffreq":4.6965513531891756E-4}}]
+     */
+    getList(listId) {
+        return this.http('POST', `${this.URLBASE}/lists/load.json`, {
+            referer: `${this.URLBASE}/dictionary/hack`
+        }, VocAPI.getFormData({id: listId}))
+        .then(defaultResHandler);
     }
 
     /**
@@ -439,7 +475,9 @@ class VocAPI {
             // convert set-referer to Referer
             if (i != -1) {
                 details.requestHeaders.push({name: "Referer", value: details.requestHeaders[i].value});
-                delete details.requestHeaders[i];
+                //delete details.requestHeaders[i]; TODO: this causes problems, the reference is still used above ?
+                // now it's sending
+                // another way that worked is to keep a url -> referer mapping in the object and update it in http
             }
             // Firefox uses promises
             // return Promise.resolve(details);
@@ -452,7 +490,7 @@ class VocAPI {
         // modify headers with webRequest hook
         chrome.webRequest.onBeforeSendHeaders.addListener(
             refererListener, //  function
-            {urls: this.interceptUrls}, // RequestFilter object
+            {urls: requestUrls}, // RequestFilter object
             ["requestHeaders", "blocking"] //  extraInfoSpec
         );
     }
@@ -470,3 +508,7 @@ class VocAPI {
         return returnString;
         }
 }
+/*
+if (module) {
+    module.exports = VocAPI;
+} */
