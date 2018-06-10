@@ -19,6 +19,7 @@ class VocAPI {
             `${this.URLBASE}/lists/byprofile.json`, 
             `${this.URLBASE}/lists/save.json`,
             `${this.URLBASE}/lists/delete.json`,
+            `${this.URLBASE}/lists/vocabgrabber/grab.json`,
             `${this.URLBASE}/lists/load.json`]);
     }
 
@@ -259,10 +260,18 @@ class VocAPI {
     }
 
     /**
-     * 
+     * @returns 
+     *  {"format":"list",
+     *  "words":[{"word":"test","def":"standardized procedure for measuring sensitivity or aptitude","diff":290,"freq":58.08562}]
+     *  "notfound": ['word1'],
+     *  "notlearnable": ['word2']}
      */
     grabWords(text) {
-        // TODO NOT IMPLEMENTED
+        return this.http('POST', `${this.URLBASE}/lists/vocabgrabber/grab.json`, {
+            referer: `${URLBASE}`,
+            responseType: 'json'
+        }, VocAPI.getFormData({text: text}))
+        .then(VocAPI.defaultResHandler);
     }
 
     /**
@@ -287,7 +296,7 @@ class VocAPI {
      * @param {*} word2
      * @returns float between 0 and 1. 1 = one included in the other, 0 = completely unsimilar 
      */
-    similar(word1, word2) {
+    similarity(word1, word2) {
         /* test:
         > sim2('speak','spozc')
         0.4000000000000001
@@ -316,12 +325,15 @@ class VocAPI {
         return similarity;
     }
 
+    isSimilar(word1, word2, threshold) {
+        return this.similarity(word1, word2) > (threshold ? threshold : 0.6);
+    }
+
     /**
      * bulk-correct a list of words 
      * @param {*} words 
      */
     correctWords(words) {
-        // TODO NOT IMPLEMENTED
         /*
         1. grab words
         2. run through in order with a similarity checker
@@ -331,6 +343,61 @@ class VocAPI {
             - skip local word that are highly unsimilar, add to not-supported list)
         3. return words with local comments etc + not-supported list
         */
+        // convert requested words to a string
+        let wordText = words.map(w => w.word).join(', ');
+
+        return this.grabWords(wordText).then( (result) => {
+
+            let getSimilarFrom = (arr, word) => {
+                return arr
+                .filter(w => this.isSimilar(w, word))
+                // if multiple are similar, select the most similar
+                .reduce( (acc, cur) => {    
+                    let curSimil = this.similarity(cur, word);
+                    if (acc.similarity < curSimil) {
+                        return {word: cur, similarity: curSimil};
+                    } else { return acc; }
+                }, {word: undefined, similarity: 0}).word;
+            };
+
+            let merge = (original, grab) => {
+                return {
+                    word: grab,
+                    description: original.description,
+                    example: original.example
+                };
+            }
+
+            let resultWords = result.words.map(w => w.word)
+            let mergeResult = [];
+            let corrected = [];
+            let notfound = result.notfound ? result.notfound : [];
+            let notlearnable = result.notlearnable ? result.notlearnable : [];
+            let resultIndex = 0;
+            // loop over originally requested words
+            for (let i = 0; i < words.length && resultIndex < resultWords.length; i++) {
+                let original = words[i];
+                if (original.word in notfound) {
+                    continue;
+                // is a similar was found in notlearnable ==> merge & add it
+                } else if (getSimilarFrom(notlearnable, original.word)) {
+                    mergeResult.push(merge(original, resultWords[resultIndex]));
+                    continue;
+                }
+                // not in not found, not in not learnable ==> we assume similarity by order
+                    mergeResult.push(merge(original, resultWords[resultIndex]));
+                    if (original.word !== resultWords[resultIndex]) {
+                        corrected.push(original);
+                    }
+                    resultIndex++;
+            }
+            return Promise.resolve({
+                words: mergeResult,
+                notfound: notfound,
+                notlearnable: notlearnable,
+                corrected: corrected
+                });
+        });
     }
 
     /**
@@ -402,6 +469,7 @@ class VocAPI {
     * @returns {"status":0,"result":listId} 0 is ok
     */ 
     addToList(words, listId) {
+        // single word: use single word correction
         if (words && words.length === 1) {
             const inword = words[0];
             return this.correctWord(inword.word).then((word) => {
@@ -423,15 +491,20 @@ class VocAPI {
                     corrected: word
                 })}); 
             });
+        // multiple words: use bulk correction
         } else if (words && words.length > 1) {
-            return this.http('POST', `${this.URLBASE}/lists/save.json`, {
-                referer: `${this.URLBASE}/dictionary/${words[0]}` 
-            }, VocAPI.getFormData({
-                "addwords": JSON.stringify(words.map(VocAPI.wordMapper)),
-                "id": listId 
-            })).then(VocAPI.defaultResHandler);
+            return this.correctWords(words).then((result) => {
+                return this.http('POST', `${this.URLBASE}/lists/save.json`, {
+                    referer: `${this.URLBASE}/dictionary/${result.words[0]}` 
+                }, VocAPI.getFormData({
+                    "addwords": JSON.stringify(result.words.map(VocAPI.wordMapper)),
+                    "id": listId 
+                }))
+                .then(VocAPI.defaultResHandler)
+                .then(() => Promise.resolve(result)); // pass info back to requester
+                })
+            };
         }
-
      }
 
     /** 
