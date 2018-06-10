@@ -265,10 +265,11 @@ class VocAPI {
      *  "words":[{"word":"test","def":"standardized procedure for measuring sensitivity or aptitude","diff":290,"freq":58.08562}]
      *  "notfound": ['word1'],
      *  "notlearnable": ['word2']}
+     *  NOTE not learnable words are also included in 'words'
      */
     grabWords(text) {
         return this.http('POST', `${this.URLBASE}/lists/vocabgrabber/grab.json`, {
-            referer: `${URLBASE}`,
+            referer: `${this.URLBASE}`,
             responseType: 'json'
         }, VocAPI.getFormData({text: text}))
         .then(VocAPI.defaultResHandler);
@@ -379,17 +380,20 @@ class VocAPI {
                 let original = words[i];
                 if (original.word in notfound) {
                     continue;
+                }
+                /* TODO: not necessary: not learnable words are in 'words' --> treat them normally
                 // is a similar was found in notlearnable ==> merge & add it
                 } else if (getSimilarFrom(notlearnable, original.word)) {
                     mergeResult.push(merge(original, resultWords[resultIndex]));
                     continue;
                 }
+                */
                 // not in not found, not in not learnable ==> we assume similarity by order
-                    mergeResult.push(merge(original, resultWords[resultIndex]));
-                    if (original.word !== resultWords[resultIndex]) {
-                        corrected.push(original);
-                    }
-                    resultIndex++;
+                mergeResult.push(merge(original, resultWords[resultIndex]));
+                if (original.word !== resultWords[resultIndex]) {
+                    corrected.push(original);
+                }
+                resultIndex++;
             }
             return Promise.resolve({
                 words: mergeResult,
@@ -433,9 +437,9 @@ class VocAPI {
         if (w.description) {
             nw.description = w.description;
             if (locationString) {
-                nw.description += '\n\n' + locationString;
+                nw.description += '\n' + locationString;
             } else {
-                nw.descripton += '\n\n' + isolatedDateString;
+                nw.description += '\n' + isolatedDateString;
             }
         } else {
             if (locationString) {
@@ -502,10 +506,9 @@ class VocAPI {
                 }))
                 .then(VocAPI.defaultResHandler)
                 .then(() => Promise.resolve(result)); // pass info back to requester
-                })
-            };
-        }
-     }
+                });
+        };
+    }
 
     /** 
     * @param words an array of words to add to the new list
@@ -520,7 +523,7 @@ class VocAPI {
             "description": description,
             "action": "create",
             "shared": shared
-         }
+         };
 
         return this.http('POST', `${this.URLBASE}/lists/save.json`,
                 {
