@@ -113,33 +113,19 @@ function withModifiedReferrer(refererUrl, requestUrl, action) {
 
 function httpGet(requestUrl, type, modifiedReferrer) {
     return new Promise( (resolve, reject) => {
-        let action = (detachHook) => {
-            var req = new XMLHttpRequest();
-            //req.withCredentials = true;
-            req.open("GET", requestUrl, true);
-            req.responseType = type ? type : "document";
-            req.onload = function () {
-                if (detachHook) detachHook();
-                if (req.status == 200) {
-                    resolve(req.response);
-                }
-                else if (req.status != 200) {
-                    reject();
-                }
-             }
-            req.send();
+        var req = new XMLHttpRequest();
+        //req.withCredentials = true;
+        req.open("GET", requestUrl, true);
+        req.responseType = type ? type : "document";
+        req.onload = function () {
+            if (req.status == 200) {
+                resolve(req.response);
+            }
+            else if (req.status != 200) {
+                reject();
+            }
         }
-        if (modifiedReferrer) {
-            chrome.runtime.sendMessage({
-                type: 'translation',
-                referrer: modifiedReferrer,
-                url: requestUrl
-            }, (res) => {
-                resolve(res);
-            });
-        } else {
-            action();
-        }
+        req.send();
     });
 }
 
@@ -299,7 +285,7 @@ function translate(text, opts) {
 
         return url + '?' + stringify(data);
     }).then(function (url) {
-        return httpGet(url, 'json', 'https://www.google.be/').then(function (res) {
+        return httpGet(url, 'json').then(function (res) {
             var result = {
                 text: res.sentences[0].trans
             };

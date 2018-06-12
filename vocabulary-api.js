@@ -533,13 +533,6 @@ class VocAPI {
                 }, VocAPI.getFormData({'wordlist': JSON.stringify(listObj)})).then(VocAPI.defaultResHandler);
      }
 
-    static translation(requestUrl, modifiedReferrer) {
-        return this.http('GET', requestUrl, {
-                referer: modifiedReferrer,
-                credentials: false
-            }).then(VocAPI.defaultResHandler);
-    }
-
     deleteList(listId) {
         return this.http('POST', `${this.URLBASE}/lists/delete.json`, {
             referer: `${this.URLBASE}/lists/${listId}/edit`
