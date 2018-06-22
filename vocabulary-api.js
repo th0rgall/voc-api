@@ -283,8 +283,7 @@ class VocAPI {
     correctWord(word) {
         return this.autoComplete(word).then(suggestions => {
             if (suggestions) {
-                return Promise.resolve(suggestions[0].word);
-                // TODO: do a manual similarity/family test before passing through?
+                return Promise.resolve(VocAPI.getSimilarFrom(suggestions.map(w => w.word), word).word);
             } else {
                 return Promise.reject('not found in Vocabulary.com');
             }
@@ -297,7 +296,7 @@ class VocAPI {
      * @param {*} word2
      * @returns float between 0 and 1. 1 = one included in the other, 0 = completely unsimilar 
      */
-    similarity(word1, word2) {
+    static similarity(word1, word2) {
         /* test:
         > sim2('speak','spozc')
         0.4000000000000001
@@ -326,9 +325,25 @@ class VocAPI {
         return similarity;
     }
 
-    isSimilar(word1, word2, threshold) {
-        return this.similarity(word1, word2) > (threshold ? threshold : 0.6);
+    static isSimilar(word1, word2, threshold) {
+        return VocAPI.similarity(word1, word2) > (threshold ? threshold : 0.6);
     }
+
+    /**
+     * Returns the most similar word from an array of strings, compared to a given word
+     * @returns {word: word, similarity: similarty}
+     */
+    static getSimilarFrom(arr, word) {
+        return arr
+        .filter(w => VocAPI.isSimilar(w, word))
+        // if multiple are similar, select the most similar
+        .reduce( (acc, cur) => {    
+            let curSimil = VocAPI.similarity(cur, word);
+            if (acc.similarity < curSimil) {
+                return {word: cur, similarity: curSimil};
+            } else { return acc; }
+        }, {word: undefined, similarity: 0}).word;
+    };
 
     /**
      * bulk-correct a list of words 
@@ -348,18 +363,6 @@ class VocAPI {
         let wordText = words.map(w => w.word).join(', ');
 
         return this.grabWords(wordText).then( (result) => {
-
-            let getSimilarFrom = (arr, word) => {
-                return arr
-                .filter(w => this.isSimilar(w, word))
-                // if multiple are similar, select the most similar
-                .reduce( (acc, cur) => {    
-                    let curSimil = this.similarity(cur, word);
-                    if (acc.similarity < curSimil) {
-                        return {word: cur, similarity: curSimil};
-                    } else { return acc; }
-                }, {word: undefined, similarity: 0}).word;
-            };
 
             let merge = (original, grab) => {
                 return {
