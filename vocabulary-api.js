@@ -14,6 +14,10 @@ class VocAPI {
 
         this.loggedIn = false;
 
+        this.options = {
+            'annotMode': 'src-lit' // scr-lit: use example source with LIT id, comment: use comments
+        };
+
         this.setReferrerInterceptor([
             `${this.URLBASE}/progress/*`,
             `${this.URLBASE}/lists/byprofile.json`, 
@@ -421,43 +425,65 @@ class VocAPI {
      * Adds some obvious info
      * @param {} w 
      */
-    static wordMapper(w) {
+    wordMapper(w) {
         let nw = {
         "word": w.word,
         "lang": "en"
         }
         w.description ? nw["description"] = w.description : false;
         const now = new Date();
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         const pad = (c) => (c+'').length === 1 ? '0' + c : c+'';
-        const hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
-        const dateString = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()} at ${hhmm}.`;
-        const locationString = w.location ? `Added from URL: ${w.location} on ${dateString}` : undefined;
-        const isolatedDateString = `Added on ${dateString}`;
-        
-        // add description and URL if present
-        if (w.description) {
-            nw.description = w.description;
-            if (locationString) {
-                nw.description += '\n' + locationString;
-            } else {
-                nw.description += '\n' + isolatedDateString;
-            }
-        } else {
-            if (locationString) {
-                nw.description = locationString;
-            } else {
-                nw.description = isolatedDateString;
-            }
-        }
 
         // add example sentence
         if (w.example) {
             nw.example = { "text": w.example };
         } else if (w.sentence) {
             nw.example = { "text": w.sentence};
-        } 
+        }
+        
+        // comment depending on options
+        if (!this.options || this.options.annotMode && this.options.annotMode === 'comment') {
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
+            const dateString = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()} at ${hhmm}.`;
+            const locationString = w.location ? `Added from URL: ${w.location} on ${dateString}` : undefined;
+            const isolatedDateString = `Added on ${dateString}`;
+            
+            // add description and URL if present
+            if (w.description) {
+                nw.description = w.description;
+                if (locationString) {
+                    nw.description += '\n' + locationString;
+                } else {
+                    nw.description += '\n' + isolatedDateString;
+                }
+            } else {
+                if (locationString) {
+                    nw.description = locationString;
+                } else {
+                    nw.description = isolatedDateString;
+                }
+            }
+        } else if (this.options.annotMode && this.options.annotMode === 'src-lit') {
+            const date = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}`;
+            let example = {};
+
+            if (w.description) {
+                nw.description = w.description;
+            }
+
+            if (w.example || w.sentence) {
+                nw.example.source = {
+                    id: 'LIT', // this special id will allow the source to be shown in lists
+                                        // probably stands for non-online 'literature'
+                                        // found in voc.com js code
+                    href: w.locationString ? w.locationString : undefined,
+                    date: date,
+                    name: w.title ? w.title : 'Untitled source'
+                };
+            }
+        }
 
         return nw;
     }
@@ -490,7 +516,7 @@ class VocAPI {
                 return this.http('POST', `${this.URLBASE}/lists/save.json`, {
                     referer: `${this.URLBASE}/dictionary/${words[0]}` 
                 }, VocAPI.getFormData({
-                    "addwords": JSON.stringify([outword].map(VocAPI.wordMapper)),
+                    "addwords": JSON.stringify([outword].map(this.wordMapper.bind(this))),
                     "id": listId 
                 }))
                 .then(VocAPI.defaultResHandler)
@@ -505,7 +531,7 @@ class VocAPI {
                 return this.http('POST', `${this.URLBASE}/lists/save.json`, {
                     referer: `${this.URLBASE}/dictionary/${result.words[0]}` 
                 }, VocAPI.getFormData({
-                    "addwords": JSON.stringify(result.words.map(VocAPI.wordMapper)),
+                    "addwords": JSON.stringify(result.words.map(this.wordMapper.bind(this))),
                     "id": listId 
                 }))
                 .then(VocAPI.defaultResHandler)
@@ -522,7 +548,7 @@ class VocAPI {
     */ 
     addToNewList(words, listName, description, shared) {
         let listObj = {
-            "words": words.map(VocAPI.wordMapper),
+            "words": words.map(this.wordMapper.bind(this)),
             "name": listName,
             "description": description,
             "action": "create",
