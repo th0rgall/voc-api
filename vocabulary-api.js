@@ -283,7 +283,7 @@ class VocAPI {
     correctWord(word) {
         return this.autoComplete(word).then(suggestions => {
             if (suggestions) {
-                return Promise.resolve(VocAPI.getSimilarFrom(suggestions.map(w => w.word), word).word);
+                return Promise.resolve(VocAPI.getSimilarFrom(suggestions.map(w => w.word), word));
             } else {
                 return Promise.reject('not found in Vocabulary.com');
             }
@@ -342,7 +342,7 @@ class VocAPI {
             if (acc.similarity < curSimil) {
                 return {word: cur, similarity: curSimil};
             } else { return acc; }
-        }, {word: undefined, similarity: 0}).word;
+        }, {word: word, similarity: 0}).word;
     };
 
     /**
