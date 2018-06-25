@@ -285,10 +285,64 @@ function translate(text, opts) {
 
         return url + '?' + stringify(data);
     }).then(function (url) {
+
+        /* Create object of the form
+         *  {
+         *      "translations": [
+         *          {
+         *              "translation": trans
+         *              "pos": pos
+         *              "alternatives": [alt1, alt2]
+         *          }
+         * ]
+         *  }
+         */
+
         return httpGet(url, 'json').then(function (res) {
             var result = {
-                text: res.sentences[0].trans
+               translations: []
             };
+
+            let posmapping_NL_NLabv = {
+                'zelfstandig naamwoord': 'zn',
+                'bijvoeglijk naamwoord': 'bn',
+                'bijwoord': 'bw',
+                'werkwoord': 'ww'
+            }
+
+            let posmapping_Google_Voc_NL_EN = {
+                'zelfstandig naamwoord': 'n',
+                'bijvoeglijk naamwoord': 'a',
+                'bijwoord': 'r',
+                'voorzetsel': 'r',
+                'werkwoord': 'v'
+            }
+
+            let posmappingVocGoogle = {
+                'n': 'zelfstandig naamwoord',
+                'v': 'werkwoord', 
+            }
+
+            if (res.dict) {
+                result.translations = res.dict.map(d => {
+                    return {
+                        translation: d.terms[0],
+                        alternatives: d.terms.slice(1),
+                        pos: posmapping_Google_Voc_NL_EN[d.pos]
+                    };
+                });
+
+                // to a PoS reordering to put the requested in front if needed
+                if (opts.pos) {
+                    const pm = opts.pos;
+                    result.translations = result.translations.sort((a,b) => {
+                        if ((a.pos === pm) && (b.pos === pm)) return 0;
+                        else if ((a.pos === pm) && (b.pos !== pm)) return -1;
+                        else if ((a.pos !== pm) && (b.pos === pm)) return 1;
+                        else return 0;
+                    });
+                }
+            }
 
             return result;
         }).catch(function (err) {
@@ -297,7 +351,7 @@ function translate(text, opts) {
             if (err && err.statusCode !== undefined && err.statusCode !== 200) {
                 e.code = 'BAD_REQUEST';
             } else {
-                e.code = 'BAD_NETWORK';
+                e.code = 'GTRANS_API_ERROR';
             }
             throw e;
         });

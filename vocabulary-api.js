@@ -75,10 +75,10 @@ class VocAPI {
      }
 
     static defaultResHandler(res) {
-        if (res.status == 200) {
+        if (res.status === 200) {
             return Promise.resolve(res.response);
 
-        } else if (res.status != 200) {
+        } else if (res.status !== 200) {
             return Promise.reject(res.response);
         }
     }
@@ -170,7 +170,7 @@ class VocAPI {
             }).then((res) => {
                 // options: name, createdate, wordcount, activitydate TODO: make options
                 let sortBy = "modifieddate";
-                if (res.status == 200) {
+                if (res.status === 200) {
                     const lists = res.response.result.wordlists
                         .filter(wl => wl.owner)
                         .sort((a,b) => a[sortBy] > b[sortBy] ? -1 : 1); // high to low
@@ -195,7 +195,7 @@ class VocAPI {
                 referer: `${this.URLBASE}/dictionary/${word}`,
                 responseType: 'json' 
             }, `word=${word}`).then((res) => {
-                if (res.status = 200) {
+                if (res.status === 200) {
                     if (res.response.lrn === false ) {
                         return Promise.reject('Not learnable');
                     } else {
