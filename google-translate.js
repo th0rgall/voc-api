@@ -342,6 +342,8 @@ function translate(text, opts) {
                         else return 0;
                     });
                 }
+            } else {  // language without dict
+                result.translations.push({'translation': res.sentences[0].trans});               
             }
 
             return result;
