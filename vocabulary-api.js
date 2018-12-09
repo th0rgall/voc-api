@@ -1,4 +1,5 @@
-let http = require('./http');
+const http = require('./http');
+const parseDocument = require('./dom');
 
 /** 
  * Promise based API interface for Vocabulary.com
@@ -212,21 +213,19 @@ class VocAPI {
             // TODO: need to find a html doc query mechanism for node
             // not supported for now on Node
             let suggestions = [];
-            if (process.browser) {
-                let lis = res.response.querySelectorAll('li');
-                for (let i = 0; i < lis.length; i ++) {
-                    let el = lis[i];
-                    let suggestion = {};
-                    suggestion.lang = el.getAttribute('lang');
-                    suggestion.synsetid = el.getAttribute('synsetid');
-                    suggestion.word = el.getAttribute('word');
-                    suggestion.frequency = el.getAttribute('freq');
-                    suggestion.definition = el.firstChild.children[2].textContent;
-                    suggestions.push(suggestion);
-                }
-            } else {
-                suggestions = [{lang: "en", word: searchTerm, synsetid: null, frequency: null, definition: null}];
+            let doc = parseDocument(res.response);
+            let lis = doc.querySelectorAll('li');
+            for (let i = 0; i < lis.length; i ++) {
+                let el = lis[i];
+                let suggestion = {};
+                suggestion.lang = el.getAttribute('lang');
+                suggestion.synsetid = el.getAttribute('synsetid');
+                suggestion.word = el.getAttribute('word');
+                suggestion.frequency = el.getAttribute('freq');
+                suggestion.definition = el.firstChild.children[2].textContent;
+                suggestions.push(suggestion);
             }
+
             return Promise.resolve(suggestions);
         });
     }
