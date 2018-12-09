@@ -1,3 +1,5 @@
+let http = require('./http');
+
 /** 
  * Promise based API interface for Vocabulary.com
  * 
@@ -13,66 +15,12 @@ class VocAPI {
         this.listNameCache = {};
 
         this.loggedIn = false;
+        this.http = http;
 
         this.options = {
             'annotMode': 'src-lit' // scr-lit: use example source with LIT id, comment: use comments
         };
-
-        this.setReferrerInterceptor([
-            `${this.URLBASE}/progress/*`,
-            `${this.URLBASE}/lists/byprofile.json`, 
-            `${this.URLBASE}/lists/save.json`,
-            `${this.URLBASE}/lists/delete.json`,
-            `${this.URLBASE}/lists/vocabgrabber/grab.json`,
-            `${this.URLBASE}/lists/load.json`]);
     }
-
-    /**
-     * 
-     * @param {*} method 
-     * @param {*} url 
-     * @param {*} options
-     *                  {
-     *                      referer: to set a specific referrer header,
-     *                      reponseType:        - default document
-     *                      credentials: boolean - default true 
-     *                  } 
-     * @param {*} data for POST or PUT 
-     */
-    http(method, url, options, data) {
-        return new Promise((resolve, reject) => {
-            let req = new XMLHttpRequest();
-            req.open(method.toUpperCase(), url, true);
-            // headers
-            req.withCredentials = true;
-            req.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-            let sendReg = /PUT|POST/i;
-            if (method.match(sendReg)) {
-                req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-            }
-            // defaults
-            req.responseType = 'document';
-            req.withCredentials = true; 
-            // options
-            if (options) {
-                if (options.referer) {
-                    req.setRequestHeader("set-referer", options.referer);
-                }
-                if ( options.responseType ) req.responseType = options.responseType;
-                if ( options.credentials ) req.withCredentials = options.credentials;
-            }
-            // generic response handler
-            req.addEventListener("load", (response) => {
-                resolve(req);
-            });
-            // send request
-            if (method.match(sendReg)) {
-                req.send(data);
-            } else {
-                req.send();
-            }
-        });
-     }
 
     static defaultResHandler(res) {
         if (res.status === 200) {
@@ -81,6 +29,19 @@ class VocAPI {
         } else if (res.status !== 200) {
             return Promise.reject(res.response);
         }
+    }
+
+    login(username, password) {
+        const formData = {
+            ".cb-autoLogon": 1,
+            "autoLogon":	true,
+            username,
+            password
+        };
+
+        return this.http('POST', `${this.URLBASE}/login/`, {
+            referer: `${this.URLBASE}/login/`
+        }, VocAPI.getFormData(formData)).then(VocAPI.defaultResHandler);
     }
     
     /**
@@ -91,13 +52,14 @@ class VocAPI {
             const requestUrl = `${this.URLBASE}/account/progress`;
             return this.http('GET', requestUrl, {})
                 .then(res => {
-                    if (res.responseURL !== requestUrl) { 
-                        // response url was not same as requested url: 302 login redirect happened
-                        return Promise.reject('not logged in');
-                    } else {
-                        this.loggedIn = true;
-                        return Promise.resolve('already logged in');
-                    }
+                    // TODO
+                    // if (res.responseURL !== requestUrl) { 
+                    //     // response url was not same as requested url: 302 login redirect happened
+                    //     return Promise.reject('not logged in');
+                    // } else {
+                    //     this.loggedIn = true;
+                    //     return Promise.resolve('already logged in');
+                    // }
                 });
          } else {
             return Promise.resolve('already logged in');
@@ -247,17 +209,23 @@ class VocAPI {
     autoComplete(searchTerm) {
         return this.http('GET', `${this.URLBASE}/dictionary/autocomplete?${VocAPI.getFormData({search: searchTerm})}`)
         .then(res => {
-            let suggestions = []
-            let lis = res.response.querySelectorAll('li');
-            for (let i = 0; i < lis.length; i ++) {
-                let el = lis[i];
-                let suggestion = {};
-                suggestion.lang = el.getAttribute('lang');
-                suggestion.synsetid = el.getAttribute('synsetid');
-                suggestion.word = el.getAttribute('word');
-                suggestion.frequency = el.getAttribute('freq');
-                suggestion.definition = el.firstChild.children[2].textContent;
-                suggestions.push(suggestion);
+            // TODO: need to find a html doc query mechanism for node
+            // not supported for now on Node
+            let suggestions = [];
+            if (process.browser) {
+                let lis = res.response.querySelectorAll('li');
+                for (let i = 0; i < lis.length; i ++) {
+                    let el = lis[i];
+                    let suggestion = {};
+                    suggestion.lang = el.getAttribute('lang');
+                    suggestion.synsetid = el.getAttribute('synsetid');
+                    suggestion.word = el.getAttribute('word');
+                    suggestion.frequency = el.getAttribute('freq');
+                    suggestion.definition = el.firstChild.children[2].textContent;
+                    suggestions.push(suggestion);
+                }
+            } else {
+                suggestions = [{lang: "en", word: searchTerm, synsetid: null, frequency: null, definition: null}];
             }
             return Promise.resolve(suggestions);
         });
@@ -335,7 +303,7 @@ class VocAPI {
 
     /**
      * Returns the most similar word from an array of strings, compared to a given word
-     * @returns {word: word, similarity: similarty}
+     * @returns {word: word, similarity: similarity}
      */
     static getSimilarFrom(arr, word) {
         return arr
@@ -569,7 +537,6 @@ class VocAPI {
         .then(VocAPI.defaultResHandler);
     }
 
-
     /**
      * 
      * @param 
@@ -587,36 +554,6 @@ class VocAPI {
     }
 
     /**
-     * Execute an function with a modified Referer header for browser requests
-     * @param {*} requestUrls list of request URL match patters that need a referer change
-     */
-    setReferrerInterceptor(requestUrls) {
-        function refererListener(details) {
-            const i = details.requestHeaders.findIndex(e => e.name.toLowerCase() == "set-referer");
-            // convert set-referer to Referer
-            if (i != -1) {
-                details.requestHeaders.push({name: "Referer", value: details.requestHeaders[i].value});
-                //delete details.requestHeaders[i]; TODO: this causes problems, the reference is still used above ?
-                // now it's sending
-                // another way that worked is to keep a url -> referer mapping in the object and update it in http
-            }
-            // Firefox uses promises
-            // return Promise.resolve(details);
-            // Chrome doesn't. Todo: https://github.com/mozilla/webextension-polyfill
-        
-            // important: do create a new object, passing the modified argument does not work
-            return {requestHeaders: details.requestHeaders};
-        }
-
-        // modify headers with webRequest hook
-        chrome.webRequest.onBeforeSendHeaders.addListener(
-            refererListener, //  function
-            {urls: requestUrls}, // RequestFilter object
-            ["requestHeaders", "blocking"] //  extraInfoSpec
-        );
-    }
-
-    /**
      * Transforms objects of the form {"key": value, "key2": value2} to the form key=value&key2=value2
      * With the values interpreted as strings. They are URL encoded in the process.
      * @param {*} object 
@@ -629,7 +566,13 @@ class VocAPI {
         return returnString;
         }
 }
-/*
-if (module) {
+
+// TODO: I'd like to remove this
+// the build process is not nice atm
+// could be changes if all files relied on import / export / require
+// but not possible, see notes in http 
+if (process.browser) {
+    window.VocAPI = VocAPI;
+} else {
     module.exports = VocAPI;
-} */
+}
