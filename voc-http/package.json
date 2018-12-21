@@ -1,5 +1,5 @@
 {
-  "name": "http",
+  "name": "voc-http",
   "browser": {
     "http.js": "browser-http.js"
   },

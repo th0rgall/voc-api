@@ -1,5 +1,5 @@
 {
-  "name": "vocapi",
+  "name": "voc-api",
   "version": "1.0.0",
   "description": "",
   "main": "vocabulary-api.js",
@@ -7,5 +7,9 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "voc-dom": "file:voc-dom",
+    "voc-http": "file:voc-http"
+  }
 }

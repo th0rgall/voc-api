@@ -1,5 +1,5 @@
-const http = require('./http');
-const parseDocument = require('./dom');
+const http = require('voc-http');
+const parseDocument = require('voc-dom');
 
 /** 
  * Promise based API interface for Vocabulary.com
@@ -120,7 +120,45 @@ class VocAPI {
     getDefinition(word) 
     {
         /* stub */
-        return "Not implemented."
+        // return "Not implemented."
+        return this.http('GET', `${this.URLBASE}/dictionary/${word}`, {
+            referer: `${this.URLBASE}/dictionary`,
+            responseType: 'document'
+        }).then(({response}) => {
+            const doc = parseDocument(response);
+
+            const outObject = {};
+            outObject.word = word;
+
+            const topPageEl = doc.querySelector('.wordPage')
+            outObject.lang = topPageEl.dataset.lang;
+            outObject.learnable = topPageEl.dataset.learnable;
+
+            outObject.short = doc
+                .querySelector('.short') // returns p
+                .textContent;
+
+            outObject.long = doc
+                .querySelector('.long')
+                .textContent;
+
+            outObject.meanings = [];
+
+            // full meanings, not primary
+            // TODO: tag primary
+            // TODO: finish
+            const meanings = doc.querySelectorAll('.sense');
+            for (let i = 0; i < meanings.length; i++) {
+                let m = meanings[i];
+                const mOut = {};
+                const d = m.querySelector('.definition');
+                mOut.definition = d.childNodes[2].textContent.trim();
+
+                outObject.meanings.push(mOut);
+            }
+
+            return outObject;
+        })
     }
 
     /**
@@ -194,6 +232,35 @@ class VocAPI {
     }
 
     /**
+     * 
+     * @param {*} res http response from autoComplete api
+     * @returns a list processed words in the form
+     * {
+     *    "word": string word,
+     *    "lang": string lang - probably 'en',
+     *    "synsetid": string (number) the id of the 'meaning' of the word - multiple meanings are possible!
+     *    "frequency": string (number) I dunno. Frequency of appearance in texts, like shown on definition pages?
+     *    "definition": string - short definition of the word 
+     * }     */
+    static autoCompleteMapper(res) {
+        let suggestions = [];
+        let doc = parseDocument(res.response);
+        let lis = doc.querySelectorAll('li');
+        for (let i = 0; i < lis.length; i ++) {
+            let el = lis[i];
+            let suggestion = {};
+            suggestion.lang = el.getAttribute('lang');
+            suggestion.synsetid = el.getAttribute('synsetid');
+            suggestion.word = el.getAttribute('word');
+            suggestion.frequency = el.getAttribute('freq');
+            suggestion.definition = el.firstChild.children[2].textContent;
+            suggestions.push(suggestion);
+        }
+
+        return Promise.resolve(suggestions);
+    }
+
+    /**
      * Gives possible words for a search term 
      * @param {*} searchTerm searchterm
      * @returns a list of suggestion objects in the  form: 
@@ -208,27 +275,29 @@ class VocAPI {
      * TODO: you can do search=word:"word" for an exact search
      */
     autoComplete(searchTerm) {
+        // TODO: re-test in browser
         return this.http('GET', `${this.URLBASE}/dictionary/autocomplete?${VocAPI.getFormData({search: searchTerm})}`)
-        .then(res => {
-            // TODO: need to find a html doc query mechanism for node
-            // not supported for now on Node
-            let suggestions = [];
-            let doc = parseDocument(res.response);
-            let lis = doc.querySelectorAll('li');
-            for (let i = 0; i < lis.length; i ++) {
-                let el = lis[i];
-                let suggestion = {};
-                suggestion.lang = el.getAttribute('lang');
-                suggestion.synsetid = el.getAttribute('synsetid');
-                suggestion.word = el.getAttribute('word');
-                suggestion.frequency = el.getAttribute('freq');
-                suggestion.definition = el.firstChild.children[2].textContent;
-                suggestions.push(suggestion);
-            }
-
-            return Promise.resolve(suggestions);
-        });
+        .then(VocAPI.autoCompleteMapper);
     }
+
+        /**
+     * Gives possible words for a search term 
+     * @param {*} searchTerm searchterm
+     * @returns a list of suggestion objects in the  form: 
+     * {
+     *    "word": string word,
+     *    "lang": string lang - probably 'en',
+     *    "synsetid": string (number) the id of the 'meaning' of the word - multiple meanings are possible!
+     *    "frequency": string (number) I dunno. Frequency of appearance in texts, like shown on definition pages?
+     *    "definition": string - short definition of the word 
+     * }
+     * 
+     */
+    getMeanings(word) {
+        // TODO: re-test in browser
+        return this.http('GET', `${this.URLBASE}/dictionary/autocomplete?${VocAPI.getFormData({search: `word:"${word}"`})}`)
+        .then(VocAPI.autoCompleteMapper);
+    } 
 
     /**
      * @returns 
@@ -408,7 +477,7 @@ class VocAPI {
             nw.example = { "text": w.sentence};
         }
         
-        // comment depending on options
+        // puts date in word comment depending on options
         if (!this.options || this.options.annotMode && this.options.annotMode === 'comment') {
             const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
             const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -432,6 +501,7 @@ class VocAPI {
                     nw.description = isolatedDateString;
                 }
             }
+        // puts date in source a source object
         } else if (this.options.annotMode && this.options.annotMode === 'src-lit') {
             const date = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}`;
             let example = {};
@@ -450,6 +520,11 @@ class VocAPI {
                     name: w.title ? w.title : 'Untitled source'
                 };
             }
+        }
+
+        // adds synsetid if present
+        if (w.synsetid) {
+            nw.synsetid = w.synsetid;
         }
 
         return nw;
