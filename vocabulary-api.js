@@ -81,15 +81,42 @@ class VocAPI {
     }
 
     /**
-     * @access private
+     * @access 
      * @param {*} id 
      */
     getListName(id) {
         if (id in this.listNameCache) {
             return Promise.resolve(this.listNameCache[id]);
         } else {
-            return Promise.reject('Name not found in cache');
+            return this.getLists().then(lists => {
+                let list = lists.find(l => l.wordlistid == id);
+                if (list) {
+                    this.listNameCache[id] = list.name;
+                    return this.listNameCache[id];
+                } else {
+                    return Promise.reject("List not found");
+                }
+            })
+            .catch(console.warn)
         }
+    }
+
+    getListId(name) {
+       let key = Object.keys(this.listNameCache).find(id => this.listNameCache[id] === name);
+       if (key) {
+           return Promise.resolve(this.listNameCache[key]);
+       } else {
+            return this.getLists().then(lists => {
+                let list = lists.find(l => l.name === name);
+                if (list) {
+                    this.listNameCache[list.wordlistid] = list.name;
+                    return list.wordlistid;
+                } else {
+                    return Promise.reject("List not found");
+                }
+            })
+            .catch(console.warn);
+       }
     }
 
      /**
@@ -99,7 +126,9 @@ class VocAPI {
     getListNameSync(id) {
         if (id in this.listNameCache) {
             return this.listNameCache[id];
-        } 
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -191,9 +220,22 @@ class VocAPI {
     }
 
     /**
-     * 
+     * @returns a list of word lists
      */
     getLists() {
+        /* example output
+         * [ { wordlistid: 2137002,
+                name: 'In The Wild',
+                shared: false,
+                createdate: '2018-01-25T20:33:41.325Z',
+                modifieddate: '2018-12-22T11:14:36.656Z',
+                wordcount: 171,
+                description: 'Words found in random places on the internet.',
+                owner: true,
+                activitydate: '2018-12-22T11:14:36.656Z',
+                p: 0.34783363,
+                ap: 0.19866072 },
+         */
         return this.http('GET', `${this.URLBASE}/lists/byprofile.json`, {
                 referer: `${this.URLBASE}/dictionary/hacker`,
                 responseType: 'json'
@@ -484,7 +526,7 @@ class VocAPI {
      * Maps word objects from this API interface's format to voc.com's format
      * Adds some obvious info like date added
      * @access private
-     * @param {Word} w wrod
+     * @param {Word} w word
      */
     wordMapper(w) {
         let nw = {
@@ -565,6 +607,15 @@ class VocAPI {
 
     /** 
     * @param {Word[]} words an array of words to add to the list
+    * @param {number} listName name of the list
+    * @returns {{"status": status, "result": listId}} statusObject 0 is ok
+    */  
+    addToListName(words, listName) {
+        return this.getListId(listName).then((id) => this.addToList(words, id));
+    }
+
+    /** 
+    * @param {Word[]} words an array of words to add to the list
     * @param {number} listId id of the listlist
     * @returns {{"status": status, "result": listId}} statusObject 0 is ok
     */ 
@@ -635,19 +686,30 @@ class VocAPI {
     }
 
     /**
-     * 
-     * @param 
+     * Gets a list of words
+     * @param {String} listId the ID of the list to get 
      * @returns
-        [{"word":"zilch","lang":"en",
-        "description":"Added from URL: https://forums.macrumors.com/threads/usb-c-powerba… on Wednesday 6 June 2018 at 14:08.",
-        "example":{"text":"So far, zilch.","offsets":[8,13]},"definition":"a quantity of no importance","shortdefinition":"a quantity of no importance",
-        "audio":["D/15IWYVT54ZU23"],"ffreq":4.6965513531891756E-4}}]
      */
     getList(listId) {
+        // TODO
+        /* example
+            [{"word":"zilch","lang":"en",
+                "description":"Added from URL: https://forums.macrumors.com/threads/usb-c-powerba… on Wednesday 6 June 2018 at 14:08.",
+                "example":{"text":"So far, zilch.","offsets":[8,13]},"definition":"a quantity of no importance","shortdefinition":"a quantity of no importance",
+                "audio":["D/15IWYVT54ZU23"],"ffreq":4.6965513531891756E-4}}]
+        */
         return this.http('POST', `${this.URLBASE}/lists/load.json`, {
             referer: `${this.URLBASE}/dictionary/hack`
         }, VocAPI.getFormData({id: listId}))
         .then(VocAPI.defaultResHandler);
+    }
+
+    /**
+     * @param {String} name name of the list
+     */
+    getListByName(name) {
+        // TODO: test
+        return this.getListId(name).then(this.getList.bind(this));
     }
 
     /**
