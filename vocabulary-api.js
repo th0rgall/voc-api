@@ -262,15 +262,9 @@ class VocAPI {
 
     /**
      * @access private
-     * @param {*} res http response from autoComplete api
-     * @returns a list processed words in the form
-     *          {
-     *              "word": string word,
-     *              "lang": string lang - probably 'en',
-     *              "synsetid": string (number) the id of the 'meaning' of the word - multiple meanings are possible!
-     *              "frequency": string (number) I dunno. Frequency of appearance in texts, like shown on definition pages?
-     *              "definition": string - short definition of the word 
-     *          }     */
+     * @param {Object} res http response from autoComplete api
+     * @returns {Meaning[]} a list of possible word meanings
+     */
     static autoCompleteMapper(res) {
         let suggestions = [];
         let doc = parseDocument(res.response);
@@ -292,16 +286,7 @@ class VocAPI {
     /**
      * Gives possible words for a search term 
      * @param {*} searchTerm searchterm
-     * @returns a list of suggestion objects in the  form: 
-     * {
-     *    "word": string word,
-     *    "lang": string lang - probably 'en',
-     *    "synsetid": string (number) the id of the 'meaning' of the word - multiple meanings are possible!
-     *    "frequency": string (number) I dunno. Frequency of appearance in texts, like shown on definition pages?
-     *    "definition": string - short definition of the word 
-     * }
-     * 
-     * TODO: you can do search=word:"word" for an exact search
+     * @returns {Meaning[]} a list of possible word meanings (from different words)
      */
     autoComplete(searchTerm) {
         // TODO: re-test in browser
@@ -309,21 +294,23 @@ class VocAPI {
         .then(VocAPI.autoCompleteMapper);
     }
 
-        /**
+    /**
+     * @typedef {Object} Meaning
+     * @property {String} word 
+     * @property {definition} frequency Frequency of the usage of this meaning (possibly, not sure)
+     * @property {String} synsetid id that identifies this particular meaning
+     * @property {String} lang language, always "en" so far
+     * @property {number} frequency Frequency of the usage of this meaning (possibly, not sure)
+     */
+
+     /**
      * Gives possible words for a search term 
      * @param {*} searchTerm searchterm
-     * @returns a list of suggestion objects in the  form: 
-     * {
-     *    "word": string word,
-     *    "lang": string lang - probably 'en',
-     *    "synsetid": string (number) the id of the 'meaning' of the word - multiple meanings are possible!
-     *    "frequency": string (number) I dunno. Frequency of appearance in texts, like shown on definition pages?
-     *    "definition": string - short definition of the word 
-     * }
-     * 
+     * @returns {Meaning[]} a list of learnable meanings of the specific word
      */
     getMeanings(word) {
         // TODO: re-test in browser
+        // TODO: these only give the learnable meanings. Definition should give full
         return this.http('GET', `${this.URLBASE}/dictionary/autocomplete?${VocAPI.getFormData({search: `word:"${word}"`})}`)
         .then(VocAPI.autoCompleteMapper);
     } 
@@ -362,6 +349,7 @@ class VocAPI {
 
     /**
      * Provides a measure for the similarity of two words.
+     * @access private
      * @param {*} word1 
      * @param {*} word2
      * @returns float between 0 and 1. 1 = one included in the other, 0 = completely unsimilar 
@@ -400,8 +388,8 @@ class VocAPI {
     }
 
     /**
-     * @typedef WordSimilarity
-     * @property {string} word 
+     * @typedef {Object} WordSimilarity
+     * @property {String} word 
      * @property {number} similarity similarity to a given word (low 0 - 1 high)
      */
 
@@ -494,8 +482,9 @@ class VocAPI {
 
     /**
      * Maps word objects from this API interface's format to voc.com's format
-     * Adds some obvious info
-     * @param {Word} w 
+     * Adds some obvious info like date added
+     * @access private
+     * @param {Word} w wrod
      */
     wordMapper(w) {
         let nw = {
@@ -569,7 +558,7 @@ class VocAPI {
     /**
      * @typedef {Object} Word
      * @property {string} word the word
-     * @property {string} [location] location in the text
+     * @property {string} [location] URL location of the word
      * @property {string} [description] description to be added to be attached to the word in a word list
      * @property {string} [example] example or source text containing the word
      */
@@ -577,7 +566,7 @@ class VocAPI {
     /** 
     * @param {Word[]} words an array of words to add to the list
     * @param {number} listId id of the listlist
-    * @returns {"status":0,"result":listId} 0 is ok
+    * @returns {{"status": status, "result": listId}} statusObject 0 is ok
     */ 
     addToList(words, listId) {
         // single word: use single word correction
@@ -662,10 +651,10 @@ class VocAPI {
     }
 
     /**
-     * @access private
      * Transforms objects of the form {"key": value, "key2": value2} to the form key=value&key2=value2
      * With the values interpreted as strings. They are URL encoded in the process.
-     * @param {*} object 
+     * @access private
+     * @param {Object} object 
      */
     static getFormData(object) {
         // const formData = new FormData();
