@@ -2,13 +2,16 @@ const http = require('voc-http');
 const parseDocument = require('voc-dom');
 
 /** 
- * Promise based API interface for Vocabulary.com
+ * Unofficial Promise-based API interface for Vocabulary.com.
  * 
- * Uses Vocabulary.com's unofficial JSON API where possible.
- * Falls back on HTML extraction for definitions and word list content.
+ * Uses Vocabulary.com's JSON API enpoints where possible.
+ * Falls back on HTML extraction for some features.
  * */
 class VocAPI {
 
+    /**
+     * @constructor
+     */
     constructor() {
         this.PROTOCOL = 'https';
         this.HOST = 'www.vocabulary.com';
@@ -23,6 +26,10 @@ class VocAPI {
         };
     }
 
+    /**
+     * @access private
+     * @param {*} res 
+     */
     static defaultResHandler(res) {
         if (res.status === 200) {
             return Promise.resolve(res.response);
@@ -32,6 +39,11 @@ class VocAPI {
         }
     }
 
+    /**
+     * 
+     * @param {*} username Username for a vocabulary.com account. 
+     * @param {*} password Password for the vocabulary.com account.
+     */
     login(username, password) {
         const formData = {
             ".cb-autoLogon": 1,
@@ -46,6 +58,7 @@ class VocAPI {
     }
     
     /**
+     * @access private
      * log-in check
      */
     checkLogin() {
@@ -67,6 +80,10 @@ class VocAPI {
         }
     }
 
+    /**
+     * @access private
+     * @param {*} id 
+     */
     getListName(id) {
         if (id in this.listNameCache) {
             return Promise.resolve(this.listNameCache[id]);
@@ -75,6 +92,10 @@ class VocAPI {
         }
     }
 
+     /**
+     * @access private
+     * @param {*} id 
+     */
     getListNameSync(id) {
         if (id in this.listNameCache) {
             return this.listNameCache[id];
@@ -82,8 +103,7 @@ class VocAPI {
     }
 
     /**
-     * @returns definition in the format
-     * 
+     * @returns {Definition} definition in the format
      * {
      *  "word": string,
      *  "definition", string      // primary definition (as given by the meta description tag)
@@ -241,16 +261,16 @@ class VocAPI {
     }
 
     /**
-     * 
+     * @access private
      * @param {*} res http response from autoComplete api
      * @returns a list processed words in the form
-     * {
-     *    "word": string word,
-     *    "lang": string lang - probably 'en',
-     *    "synsetid": string (number) the id of the 'meaning' of the word - multiple meanings are possible!
-     *    "frequency": string (number) I dunno. Frequency of appearance in texts, like shown on definition pages?
-     *    "definition": string - short definition of the word 
-     * }     */
+     *          {
+     *              "word": string word,
+     *              "lang": string lang - probably 'en',
+     *              "synsetid": string (number) the id of the 'meaning' of the word - multiple meanings are possible!
+     *              "frequency": string (number) I dunno. Frequency of appearance in texts, like shown on definition pages?
+     *              "definition": string - short definition of the word 
+     *          }     */
     static autoCompleteMapper(res) {
         let suggestions = [];
         let doc = parseDocument(res.response);
@@ -309,11 +329,12 @@ class VocAPI {
     } 
 
     /**
-     * @returns 
-     *  {"format":"list",
+     * @returns {Object} 
+     * {
+     *  "format":"list",
      *  "words":[{"word":"test","def":"standardized procedure for measuring sensitivity or aptitude","diff":290,"freq":58.08562}]
      *  "notfound": ['word1'],
-     *  "notlearnable": ['word2']}
+     *  "notlearnable": ['word2']}}
      *  NOTE not learnable words are also included in 'words'
      */
     grabWords(text) {
@@ -327,7 +348,7 @@ class VocAPI {
     /**
      * Corrects the word with the nearest available word in Vocabulary.com
      * Rejects if no word was found.
-     * @param {*} word 
+     * @param {String} word 
      */
     correctWord(word) {
         return this.autoComplete(word).then(suggestions => {
@@ -379,8 +400,14 @@ class VocAPI {
     }
 
     /**
-     * Returns the most similar word from an array of strings, compared to a given word
-     * @returns {word: word, similarity: similarity}
+     * @typedef WordSimilarity
+     * @property {string} word 
+     * @property {number} similarity similarity to a given word (low 0 - 1 high)
+     */
+
+    /**
+     * Returns the most similar word string from an array of strings, compared to a given word
+     * @returns {WordSimilarity[]} wordSimilarities array of objects with a word string and similarity
      */
     static getSimilarFrom(arr, word) {
         return arr
@@ -395,8 +422,8 @@ class VocAPI {
     };
 
     /**
-     * bulk-correct a list of words 
-     * @param {*} words 
+     * Bulk-correct a list of word objects.
+     * @param {Word[]} words a list of word objects to be corrected
      */
     correctWords(words) {
         /*
@@ -457,7 +484,7 @@ class VocAPI {
     }
 
     /**
-     * @param wordToLearn as a plain word
+     * @param {String} wordToLearn word
      */
     startLearning(wordToLearn) {
         return this.http('POST', `${this.URLBASE}/progress/startlearning.json`, 
@@ -468,7 +495,7 @@ class VocAPI {
     /**
      * Maps word objects from this API interface's format to voc.com's format
      * Adds some obvious info
-     * @param {} w 
+     * @param {Word} w 
      */
     wordMapper(w) {
         let nw = {
@@ -539,19 +566,17 @@ class VocAPI {
         return nw;
     }
 
+    /**
+     * @typedef {Object} Word
+     * @property {string} word the word
+     * @property {string} [location] location in the text
+     * @property {string} [description] description to be added to be attached to the word in a word list
+     * @property {string} [example] example or source text containing the word
+     */
+
     /** 
-    * @param words an array of words to add to the list - format:
-    * [
-        {
-            "word":"kangaroo",
-            "location": 
-            "sentence": 
-            "description":"Test kangaroo", 
-            "example": "Kangaroo makes me boo"
-        }
-        ]
-        description and example are optional
-    * @param listId id of the listlist
+    * @param {Word[]} words an array of words to add to the list
+    * @param {number} listId id of the listlist
     * @returns {"status":0,"result":listId} 0 is ok
     */ 
     addToList(words, listId) {
@@ -637,6 +662,7 @@ class VocAPI {
     }
 
     /**
+     * @access private
      * Transforms objects of the form {"key": value, "key2": value2} to the form key=value&key2=value2
      * With the values interpreted as strings. They are URL encoded in the process.
      * @param {*} object 
