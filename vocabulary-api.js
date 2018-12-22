@@ -151,8 +151,17 @@ class VocAPI {
             for (let i = 0; i < meanings.length; i++) {
                 let m = meanings[i];
                 const mOut = {};
+
+                // first of a meaning group
+                // if (Array.prototype.indexOf.call(m.parentElement.children, m) === 0) {
+                //     mOut.primary = true;
+                // } TODO does not work with groups
+
+                mOut.synsetid = /^s(\d+)$/.exec(m.id)[1];
                 const d = m.querySelector('.definition');
                 mOut.definition = d.childNodes[2].textContent.trim();
+
+                
 
                 outObject.meanings.push(mOut);
             }
