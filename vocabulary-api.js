@@ -133,45 +133,45 @@ class VocAPI {
     }
 
     /**
+     * Gets definition of a word. 
      * @param {String} word the word to get a definition for
-     * @returns {Definition} definition in the format
-     * {
-     *  "word": string,
-     *  "definition", string      // primary definition (as given by the meta description tag)
-     *  "description": string     // the long format description unique to Vocabulary.com
-     *  "audioURL": string        // of the form https://audio.vocab.com/1.0/us/C/12RWPXAD427B5.mp3
-     *                               // with C/.... being the code, in data-audio on the element
-     *                               // document.querySelector('.audio')
-     *  "meanings": [       // categories of meanings
-     *      {                   // specific meaning
-     *          "forms": [          // different forms
-     *              {
-     *                  "pos": string,          // part of speech: v, n, ...                
-     *                  "definition": string,
-     *                  "synonyms": [ synonym ],           // TODO: kunnen ook meerdere zijn?
-     *                  "subtypes": [                      // subtypes of the word
-     *                      { "words": [ string ],   // subtypes
-     *                        "defintition": string:
-     *                      }
-     *                  "supertypes":                   // TODO: only 1?
-     *                  {
-     *                       "words": [ string ]
-     *                       "definition": string
-     *                  }
-     *              }
-     *            ]
-     *         }     
-     *      ]
-     *    }
-     *  ]
-     * }
-     * 
-     * Primary meanings are, for every meaning, the first form of a given part of speech
+     * @returns {Definition} definition in the format. Proper return format documentaiton TODO, try it out & see what happens!
      */
     getDefinition(word) 
     {
-        /* stub */
-        // return "Not implemented."
+        /* TODO: Response target spec
+        *  {
+        *  "word": string,
+        *  "definition", string      // primary definition (as given by the meta description tag)
+        *  "description": string     // the long format description unique to Vocabulary.com
+        *  "audioURL": string        // of the form https://audio.vocab.com/1.0/us/C/12RWPXAD427B5.mp3
+        *                               // with C/.... being the code, in data-audio on the element
+        *                               // document.querySelector('.audio')
+        *  "meanings": [       // categories of meanings
+        *      {                   // specific meaning
+        *          "forms": [          // different forms
+        *              {
+        *                  "pos": string,          // part of speech: v, n, ...                
+        *                  "definition": string,
+        *                  "synonyms": [ synonym ],           // TODO: kunnen ook meerdere zijn?
+        *                  "subtypes": [                      // subtypes of the word
+        *                      { "words": [ string ],   // subtypes
+        *                        "defintition": string:
+        *                      }
+        *                  "supertypes":                   // TODO: only 1?
+        *                  {
+        *                       "words": [ string ]
+        *                       "definition": string
+        *                  }
+        *              }
+        *            ]
+        *         }     
+        *      ]
+        *    }
+        *  ]
+        * }
+        * Primary meanings are, for every meaning, the first form of a given part of speech
+        */
         return this.http('GET', `${this.URLBASE}/dictionary/${word}`, {
             referer: `${this.URLBASE}/dictionary`,
             responseType: 'document'
@@ -222,7 +222,8 @@ class VocAPI {
     }
 
     /**
-     * @returns a list of word lists
+     * Returns a list of the lists of the logged in user.
+     * @returns {Object[]} a list of word lists. Proper return format documentaiton TODO, try it out & see what happens!
      */
     getLists() {
         /* example output
@@ -261,7 +262,9 @@ class VocAPI {
    }
 
     /**
-     * 
+     * Gets the learning progress of a word
+     * @param {String} word the word for which to retrieve progress
+     * @returns {Object} progress object. Proper return format documentaiton TODO, try it out & see what happens! 
      */
     progress(word) {
         return this.http("POST", `${this.URLBASE}/progress/progress.json`, {
@@ -292,9 +295,10 @@ class VocAPI {
     }
 
     /**
-     *  
+     * Sets the priority for learning a word
      * @param {*} word 
-     * @param {*} priority afaik: -1 for low priority, 0 for auto, 1 for  
+     * @param {*} priority afaik: -1 for low priority, 0 for auto, 1 for 
+     * @returns {Promise}
      */
     setPriority(word, priority) {
         return this.http('POST', `${this.URLBASE}/progress/setpriority.json`, {
@@ -327,7 +331,7 @@ class VocAPI {
     }
 
     /**
-     * Gives possible words for a search term 
+     * Gives word suggestions for a search term. All suggestions are valid vocabulary.com words. The searchTerm can be a partial word, or slightly misspelled.
      * @param {*} searchTerm searchterm
      * @returns {Meaning[]} a list of possible word meanings (from different words)
      */
@@ -347,8 +351,8 @@ class VocAPI {
      */
 
      /**
-     * Gives possible words for a search term 
-     * @param {*} searchTerm searchterm
+     * Gives a list of learnable meanings (definitions) of the specific word
+     * @param {String} word the word for which to retrieve meanings.
      * @returns {Meaning[]} a list of learnable meanings of the specific word
      */
     getMeanings(word) {
@@ -359,7 +363,9 @@ class VocAPI {
     } 
 
     /**
-     * @returns {Object} 
+     * @access private
+     * @param {String} text
+     * @returns {Object}
      * {
      *  "format":"list",
      *  "words":[{"word":"test","def":"standardized procedure for measuring sensitivity or aptitude","diff":290,"freq":58.08562}]
@@ -376,9 +382,9 @@ class VocAPI {
     }
 
     /**
-     * Corrects the word with the nearest available word in Vocabulary.com
+     * Attempts to correct the word with the nearest available word in Vocabulary.com.
      * Rejects if no word was found.
-     * @param {String} word 
+     * @param {String} word the word to correct
      */
     correctWord(word) {
         return this.autoComplete(word).then(suggestions => {
@@ -438,6 +444,9 @@ class VocAPI {
 
     /**
      * Returns the most similar word string from an array of strings, compared to a given word
+     * @access private
+     * @param {String[]} arr
+     * @param {String} word
      * @returns {WordSimilarity[]} wordSimilarities array of objects with a word string and similarity
      */
     static getSimilarFrom(arr, word) {
@@ -647,6 +656,7 @@ class VocAPI {
      */
 
     /** 
+    * Add a given list to an existing list, given by name. The first (most recent) list with that name will be used. 
     * Convenience method that combines getListName and addToList.
     * @param {Word[]} words an array of words to add to the list
     * @param {number} listName name of the list
@@ -658,7 +668,7 @@ class VocAPI {
 
     /** 
     * @param {Word[]} words an array of words to add to the list
-    * @param {number} listId id of the listlist
+    * @param {number} listId id of the list
     * @returns {{"status": status, "result": listId}} statusObject 0 is ok
     */ 
     addToList(words, listId) {
