@@ -112,10 +112,9 @@ class VocAPI {
                     this.listNameCache[list.wordlistid] = list.name;
                     return list.wordlistid;
                 } else {
-                    return Promise.reject("List not found");
+                    return Promise.reject(new Error("List not found"));
                 }
             })
-            .catch(console.warn);
        }
     }
 
@@ -253,8 +252,7 @@ class VocAPI {
                     })
                     return Promise.resolve(lists);
                 } else {
-                    console.log(`Error: ` + res.responseText);
-                    return Promise.reject();
+                    throw new Error(res.responseText);
                 }
             });
    }
@@ -466,16 +464,23 @@ class VocAPI {
         3. return words with local comments etc + not-supported list
         */
         // convert requested words to a string
-        let wordText = words.map(w => w.word).join(', ');
+        let wordText = "";
+        if (words.length > 1) {
+            wordText = words.map(w => w.word).join(', ');
+        } else if (words.length == 1) {
+            wordText = words[0].word + ",";
+        } else {
+            return Promise.reject("Can't add an empty list");
+        }
 
         return this.grabWords(wordText).then( (result) => {
 
+            console.log(result);
+
             let merge = (original, grab) => {
-                return {
-                    word: grab,
-                    description: original.description,
-                    example: original.example
-                };
+                const newWord = {...original};
+                newWord.word = grab;
+                return newWord;
             }
 
             let resultWords = result.words.map(w => w.word)
@@ -484,22 +489,51 @@ class VocAPI {
             let notfound = result.notfound ? result.notfound : [];
             let notlearnable = result.notlearnable ? result.notlearnable : [];
             let resultIndex = 0;
+
+            let inputs = [];
+            
             // loop over originally requested words
             for (let i = 0; i < words.length && resultIndex < resultWords.length; i++) {
                 let original = words[i];
+                let resultWord = result.words[resultIndex]; 
+
+                // word was not found, skip it
                 if (notfound.indexOf(original.word) !== -1) {
                     continue;
                 }
+
+                // explanation:
+                // if there are multiple words of the same stem, vocab's grabber only takes out one and puts it 
+                // in the order of the first one. The variants, if not equal to the stem, are added to the 'input' property
+                // TODO: give it higher importance: more appearnces, more important
+                // TODO: is desired behavior to have two examples? then change is necessary
+
+                // build inputs
+                // TODO: might be done more than once for the same resultIndex
+                let currentInput = resultWord.input ? resultWord.input : []; 
+                if (currentInput) { // word has more inputs
+                    // add word itself for the following check
+                    inputs = [resultWord.word, ...currentInput, ...inputs];
+                }
+
+                if (inputs.find(w => w === original.word) 
+                    && !( currentInput.find(w => w === original.word) || resultWord.word === original.word) ) { // check if current was an input for another one before
+                    continue; // skip as well
+                    // TODO: add as a second instance of the word before, with new example? as an option
+                }
+
                 /* TODO: not necessary: not learnable words are in 'words' --> treat them normally
                 // is a similar was found in notlearnable ==> merge & add it
                 } else if (getSimilarFrom(notlearnable, original.word)) {
-                    mergeResult.push(merge(original, resultWords[resultIndex]));
+                    mergeResult.push(merge(original, resultWord.word));
                     continue;
                 }
                 */
+
                 // not in not found, not in not learnable ==> we assume similarity by order
-                mergeResult.push(merge(original, resultWords[resultIndex]));
-                if (original.word !== resultWords[resultIndex]) {
+                mergeResult.push(merge(original, resultWord.word));
+
+                if (original.word !== resultWord.word) {
                     corrected.push(original);
                 }
                 resultIndex++;
@@ -536,6 +570,10 @@ class VocAPI {
         w.description ? nw["description"] = w.description : false;
         const now = new Date();
         const pad = (c) => (c+'').length === 1 ? '0' + c : c+'';
+
+        // limit example lenght to 500 to prevent errors (vocab restriction)
+        // TODO: possibly, if > 500 chars, find word and  extract 500 chars around the word with ... [rest] word [rest] ...
+        w.example = w.example.slice(0, 500);
 
         // add example sentence
         if (w.example) {
@@ -663,26 +701,34 @@ class VocAPI {
     * @param shared boolean that shows whether list should be shared or not
     */ 
     addToNewList(words, listName, description, shared) {
+
         let listObj = {
-            "words": words.map(this.wordMapper.bind(this)),
             "name": listName,
             "description": description,
             "action": "create",
             "shared": shared
          };
 
-        return this.http('POST', `${this.URLBASE}/lists/save.json`,
-                {
-                    referer: `${this.URLBASE}/lists/vocabgrabber`,
-                    responseType: 'json' 
-                }, VocAPI.getFormData({'wordlist': JSON.stringify(listObj)})).then(VocAPI.defaultResHandler);
+        return this.correctWords(words).then(result => {
+            listObj.words = result.words.map(this.wordMapper.bind(this));
+            return this.http('POST', `${this.URLBASE}/lists/save.json`,
+            {
+                referer: `${this.URLBASE}/lists/vocabgrabber`,
+                responseType: 'json' 
+            }, VocAPI.getFormData({'wordlist': JSON.stringify(listObj)})).then(VocAPI.defaultResHandler);
+        })
      }
 
     deleteList(listId) {
         return this.http('POST', `${this.URLBASE}/lists/delete.json`, {
             referer: `${this.URLBASE}/lists/${listId}/edit`
         }, VocAPI.getFormData({id: listId}))
-        .then(VocAPI.defaultResHandler);
+        .then(VocAPI.defaultResHandler)
+        .then(r => {
+            // invalidate cache
+            delete this.listNameCache[listId];
+            // handle response
+            return r;});
     }
 
     /**
