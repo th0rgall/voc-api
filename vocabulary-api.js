@@ -133,6 +133,7 @@ class VocAPI {
     }
 
     /**
+     * @param {String} word the word to get a definition for
      * @returns {Definition} definition in the format
      * {
      *  "word": string,
