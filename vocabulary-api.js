@@ -40,9 +40,11 @@ class VocAPI {
     }
 
     /**
+     * Logs the user in & sets internal cookie auth so that further methods can access
+     * account-specific information.
      * 
-     * @param {*} username Username for a vocabulary.com account. 
-     * @param {*} password Password for the vocabulary.com account.
+     * @param {String} username Username for the vocabulary.com account. 
+     * @param {String} password Password for the vocabulary.com account.
      */
     login(username, password) {
         const formData = {
@@ -58,8 +60,9 @@ class VocAPI {
     }
     
     /**
+     * Check the login status.
+     * 
      * @access private
-     * log-in check
      */
     checkLogin() {
         if (!this.loggedIn) {
@@ -81,7 +84,6 @@ class VocAPI {
     }
 
     /**
-     * @access 
      * @param {*} id 
      */
     getListName(id) {
@@ -644,6 +646,7 @@ class VocAPI {
      */
 
     /** 
+    * Convenience method that combines getListName and addToList.
     * @param {Word[]} words an array of words to add to the list
     * @param {number} listName name of the list
     * @returns {{"status": status, "result": listId}} statusObject 0 is ok
@@ -734,7 +737,7 @@ class VocAPI {
     /**
      * Gets a list of words
      * @param {String} listId the ID of the list to get 
-     * @returns
+     * @returns {Object[]} a list of vocabulary.com word objects
      */
     getList(listId) {
         // TODO

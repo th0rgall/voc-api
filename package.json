@@ -1,14 +1,14 @@
 {
   "name": "voc-api",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.1.0",
+  "description": "Unofficial API for vocabulary.com. Manage lists and get definitions.",
   "main": "vocabulary-api.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "generate-docs": "node_modules/.bin/jsdoc --configure .jsdoc.json --verbose"
+    "generate-docs": "node_modules/.bin/jsdoc --configure .jsdoc.json --verbose vocabulary-api.js"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "@th0rgall",
+  "license": "MIT",
   "dependencies": {
     "voc-dom": "file:voc-dom",
     "voc-http": "file:voc-http"
