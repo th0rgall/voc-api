@@ -1,5 +1,6 @@
 const http = require('voc-http');
 const parseDocument = require('voc-dom');
+const _ = require('underscore');
 
 /** 
  * Unofficial Promise-based API interface for Vocabulary.com.
@@ -12,7 +13,7 @@ class VocAPI {
     /**
      * @constructor
      */
-    constructor() {
+    constructor(options) {
         this.PROTOCOL = 'https';
         this.HOST = 'www.vocabulary.com';
         this.URLBASE = `${this.PROTOCOL}://${this.HOST}`;
@@ -21,9 +22,13 @@ class VocAPI {
         this.loggedIn = false;
         this.http = http;
 
+        // option defaults
         this.options = {
-            'annotMode': 'src-lit' // scr-lit: use example source with LIT id, comment: use comments
+            'annotMode': 'src-lit', // scr-lit: use example source with LIT id, comment: use comments
+            increaseImportanceForDuplicates: true, // TODO: implement feature
         };
+
+        _.extend(this.options, options ? options : {});
     }
 
     /**
@@ -135,7 +140,7 @@ class VocAPI {
     /**
      * Gets definition of a word. 
      * @param {String} word the word to get a definition for
-     * @returns {Definition} definition in the format. Proper return format documentaiton TODO, try it out & see what happens!
+     * @returns {Definition} definition in the format. Proper return format documentation TODO, try it out & see what happens!
      */
     getDefinition(word) 
     {
@@ -266,7 +271,7 @@ class VocAPI {
      * @param {String} word the word for which to retrieve progress
      * @returns {Object} progress object. Proper return format documentaiton TODO, try it out & see what happens! 
      */
-    progress(word) {
+    getProgress(word) {
         return this.http("POST", `${this.URLBASE}/progress/progress.json`, {
                 referer: `${this.URLBASE}/dictionary/${word}`,
                 responseType: 'json' 
@@ -286,10 +291,10 @@ class VocAPI {
                             "diff": prog.dif ? prog.dif : prog.diff,
                             "def": prog.def
                             };
-                        return Promise.resolve(response);
+                        return response;
                     }
                 } else {
-                    return Promise.reject('Bad response');
+                    throw new Error('Bad progress response from API');
                 }
         });
     }
@@ -297,10 +302,12 @@ class VocAPI {
     /**
      * Sets the priority for learning a word
      * @param {*} word 
-     * @param {*} priority afaik: -1 for low priority, 0 for auto, 1 for 
+     * @param {*} priority afaik: -1 for low priority (or auto?), 0 high priority
      * @returns {Promise}
      */
     setPriority(word, priority) {
+
+
         return this.http('POST', `${this.URLBASE}/progress/setpriority.json`, {
             referer: `${this.URLBASE}/dictionary/${word}`
         }, VocAPI.getFormData({word: word, priority: priority})).then(VocAPI.defaultResHandler);
@@ -569,6 +576,16 @@ class VocAPI {
     }
 
     /**
+     * @param {String} listId list to start learning
+     */
+    startLearningList(listId) {
+        // TODO: test + use in double priority checker with option to auto-start learning if that is not yet so
+        return this.http('POST', `${this.URLBASE}/lists/${listId}/start.json`, 
+        {referer: `${this.URLBASE}/lists/${listId}`})
+        .then(VocAPI.defaultResHandler);
+    }
+
+    /**
      * Maps word objects from this API interface's format to voc.com's format
      * Adds some obvious info like date added
      * @access private
@@ -583,12 +600,11 @@ class VocAPI {
         const now = new Date();
         const pad = (c) => (c+'').length === 1 ? '0' + c : c+'';
 
-        // limit example lenght to 500 to prevent errors (vocab restriction)
-        // TODO: possibly, if > 500 chars, find word and  extract 500 chars around the word with ... [rest] word [rest] ...
-        w.example = w.example.slice(0, 500);
-
         // add example sentence
         if (w.example) {
+            // limit example lenght to 500 to prevent errors (vocab restriction)
+            // TODO: possibly, if > 500 chars, find word and  extract 500 chars around the word with ... [rest] word [rest] ...
+            w.example = w.example.slice(0, 500);
             nw.example = { "text": w.example };
         } else if (w.sentence) {
             nw.example = { "text": w.sentence};
@@ -669,31 +685,57 @@ class VocAPI {
     /** 
     * @param {Word[]} words an array of words to add to the list
     * @param {number} listId id of the list
-    * @returns {{"status": status, "result": listId}} statusObject 0 is ok
+    * @returns {{"original": String, "corrected": String, "listId": String}} response object 
     */ 
     addToList(words, listId) {
         // single word: use single word correction
         if (words && words.length === 1) {
             let inword = words[0];
             return this.correctWord(inword.word).then((word) => {
-                let outword = inword;
+                let outword = _.extend({}, inword);
                 if (inword.word !== word) {
                     console.log(`${inword.word} corrected to ${word}`);
                     outword.word = word;
                 }
                 return this.http('POST', `${this.URLBASE}/lists/save.json`, {
-                    referer: `${this.URLBASE}/dictionary/${words[0]}` 
+                    referer: `${this.URLBASE}/dictionary/${words[0]}`,
+                    responseType: "json" 
                 }, VocAPI.getFormData({
                     "addwords": JSON.stringify([outword].map(this.wordMapper.bind(this))),
                     "id": listId 
                 }))
                 .then(VocAPI.defaultResHandler)
-                .then((res) => {return Promise.resolve({
-                    original: inword,
-                    corrected: word
-                })}); 
+                .then((res) => {
+                    if (res.status === 1) {
+                        throw new Error(res.message, res);
+                    } else {
+                        return {
+                            original: inword,
+                            corrected: word,
+                            listId: res.result
+                        }
+                    }
+                })
+                // increase priority of duplicates
+                // TODO: warn that setting priority requires wordlist to be in learning program
+                .then( (addedWord) => {
+                    if (this.options.increaseImportanceForDuplicates) {
+                        this.getList(listId)
+                        .then((listSrc) => {
+                            // check if already existing in list / TODO do with progress for single?
+                            let fi = listSrc.words.find(w => w === addedWord.corrected);
+                            if (fi) {
+                                this.setPriority(addedWord.corrected, 1).then(); 
+                            }
+                        });
+                    }
+                    return addedWord;
+                });
             });
+
+
         // multiple words: use bulk correction
+        // TODO: progress & result handling like above
         } else if (words && words.length > 1) {
             return this.correctWords(words).then((result) => {
                 return this.http('POST', `${this.URLBASE}/lists/save.json`, {
@@ -757,11 +799,20 @@ class VocAPI {
                 "description":"Added from URL: https://forums.macrumors.com/threads/usb-c-powerba… on Wednesday 6 June 2018 at 14:08.",
                 "example":{"text":"So far, zilch.","offsets":[8,13]},"definition":"a quantity of no importance","shortdefinition":"a quantity of no importance",
                 "audio":["D/15IWYVT54ZU23"],"ffreq":4.6965513531891756E-4}}]
+
+        // error format: {status: 1, "errortype", "error", "message"}
         */
         return this.http('POST', `${this.URLBASE}/lists/load.json`, {
-            referer: `${this.URLBASE}/dictionary/hack`
+            referer: `${this.URLBASE}/dictionary/hack`,
+            responseType: "json"
         }, VocAPI.getFormData({id: listId}))
-        .then(VocAPI.defaultResHandler);
+        .then(VocAPI.defaultResHandler).then(listSrc => {
+            if (listSrc.status === 1) {
+                throw new Error(listSrc.message, listSrc);
+            } else {
+                return listSrc.result;
+            }
+        });
     }
 
     /**

@@ -10,6 +10,7 @@
   "author": "@th0rgall",
   "license": "MIT",
   "dependencies": {
+    "underscore": "^1.9.1",
     "voc-dom": "file:voc-dom",
     "voc-http": "file:voc-http"
   },
