@@ -4,7 +4,7 @@
   "description": "Unofficial API for vocabulary.com. Manage lists and get definitions.",
   "main": "vocabulary-api.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "./node_modules/.bin/mocha",
     "generate-docs": "node_modules/.bin/jsdoc --configure .jsdoc.json --verbose vocabulary-api.js"
   },
   "author": "@th0rgall",
@@ -15,7 +15,10 @@
     "voc-http": "file:voc-http"
   },
   "devDependencies": {
+    "chai": "^4.2.0",
+    "chai-as-promised": "^7.1.1",
     "jsdoc": "^3.5.5",
-    "minami": "^1.2.3"
+    "minami": "^1.2.3",
+    "mocha": "^5.2.0"
   }
 }

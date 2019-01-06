@@ -494,7 +494,7 @@ class VocAPI {
 
         return this.grabWords(wordText).then( (result) => {
 
-            console.log(result);
+            //console.log(result);
 
             let merge = (original, grab) => {
                 const newWord = {...original};
@@ -707,7 +707,7 @@ class VocAPI {
                 .then(VocAPI.defaultResHandler)
                 .then((res) => {
                     if (res.status === 1) {
-                        throw new Error(res.message, res);
+                        throw new Error(res.error);
                     } else {
                         return {
                             original: inword,
@@ -718,18 +718,20 @@ class VocAPI {
                 })
                 // increase priority of duplicates
                 // TODO: warn that setting priority requires wordlist to be in learning program
-                .then( (addedWord) => {
+                .then( (result) => {
+                    // side-effect request...
                     if (this.options.increaseImportanceForDuplicates) {
-                        this.getList(listId)
+                        this.getList(result.listId)
                         .then((listSrc) => {
                             // check if already existing in list / TODO do with progress for single?
-                            let fi = listSrc.words.find(w => w === addedWord.corrected);
+                            let fi = listSrc.words.find(w => w === result.corrected);
                             if (fi) {
-                                this.setPriority(addedWord.corrected, 1).then(); 
+                                this.setPriority(result.corrected, 1).then(); 
                             }
                         });
                     }
-                    return addedWord;
+
+                    return result;
                 });
             });
 
@@ -739,15 +741,26 @@ class VocAPI {
         } else if (words && words.length > 1) {
             return this.correctWords(words).then((result) => {
                 return this.http('POST', `${this.URLBASE}/lists/save.json`, {
-                    referer: `${this.URLBASE}/dictionary/${result.words[0]}` 
+                    referer: `${this.URLBASE}/dictionary/${result.words[0]}`,
+                    responseType: 'json' 
                 }, VocAPI.getFormData({
                     "addwords": JSON.stringify(result.words.map(this.wordMapper.bind(this))),
                     "id": listId 
                 }))
                 .then(VocAPI.defaultResHandler)
-                .then(() => Promise.resolve(result)); // pass info back to requester
-                });
-        };
+                .then((res) => {
+                    if (res.status === 1) {
+                        throw new Error(res.error);
+                    } else {
+                        return {
+                            // original: inword, TODO: variant for multiple? (not necessary)
+                            // corrected: word,
+                            listId: res.result
+                        }
+                    }
+                })  
+            });
+        }
     }
 
     /** 
@@ -771,7 +784,19 @@ class VocAPI {
             {
                 referer: `${this.URLBASE}/lists/vocabgrabber`,
                 responseType: 'json' 
-            }, VocAPI.getFormData({'wordlist': JSON.stringify(listObj)})).then(VocAPI.defaultResHandler);
+            }, VocAPI.getFormData({'wordlist': JSON.stringify(listObj)}))
+            .then(VocAPI.defaultResHandler)
+            .then((res) => {
+                if (res.status === 1) {
+                    throw new Error(res.error);
+                } else {
+                    return {
+                        // original: inword, TODO: variant for multiple? (not necessary)
+                        // corrected: word,
+                        listId: res.result
+                    }
+                }
+            }) ;
         })
      }
 
@@ -808,7 +833,7 @@ class VocAPI {
         }, VocAPI.getFormData({id: listId}))
         .then(VocAPI.defaultResHandler).then(listSrc => {
             if (listSrc.status === 1) {
-                throw new Error(listSrc.message, listSrc);
+                 throw new Error(listSrc.error);
             } else {
                 return listSrc.result;
             }
