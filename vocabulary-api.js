@@ -61,30 +61,48 @@ class VocAPI {
 
         return this.http('POST', `${this.URLBASE}/login/`, {
             referer: `${this.URLBASE}/login/`
-        }, VocAPI.getFormData(formData)).then(VocAPI.defaultResHandler);
+        }, VocAPI.getFormData(formData)).then(VocAPI.defaultResHandler)
+            .then((r) => {this.loggedIn = true; return r});
+    }
+
+    /**
+     * Returns true if logout was successful. 
+     * @access private
+     * @param {*} username 
+     * @param {*} password 
+     */
+    logout(username, password) {
+        return this.http('GET', `${this.URLBASE}/auth/logout.json`, {
+            referer: `${this.URLBASE}/account`,
+            responseType: 'json'
+        }).then(VocAPI.defaultResHandler).then(r => {this.loggedIn = false; return r});
     }
     
     /**
-     * Check the login status.
-     * 
-     * @access private
+     * Checks the login status.
+     * Queries the account page. 
+     * If a redirect to the login page occured, this promise fails. Otherwise it succeeds.
+     * @access
      */
     checkLogin() {
         if (!this.loggedIn) {
-            const requestUrl = `${this.URLBASE}/account/progress`;
-            return this.http('GET', requestUrl, {})
+            const requestUrl = `${this.URLBASE}/account`;
+            return this.http('GET', requestUrl, {
+                referer: this.URLBASE,
+                responseType: 'document'
+            })
                 .then(res => {
-                    // TODO
-                    // if (res.responseURL !== requestUrl) { 
-                    //     // response url was not same as requested url: 302 login redirect happened
-                    //     return Promise.reject('not logged in');
-                    // } else {
-                    //     this.loggedIn = true;
-                    //     return Promise.resolve('already logged in');
-                    // }
+                    let doc = parseDocument(res.response);
+                    if (doc.querySelector('body').classList.contains('top-section-account')) { 
+                        // has classes 'loggedin' or 'loggedout'
+                        this.loggedIn = true;
+                        return true;
+                    } else {
+                        return Promise.reject('not logged in');
+                    }
                 });
          } else {
-            return Promise.resolve('already logged in');
+            return true;
         }
     }
 
@@ -344,6 +362,7 @@ class VocAPI {
      */
     autoComplete(searchTerm) {
         // TODO: re-test in browser
+        // TOOD: test with illegal input (empty...)
         return this.http('GET', `${this.URLBASE}/dictionary/autocomplete?${VocAPI.getFormData({search: searchTerm})}`)
         .then(VocAPI.autoCompleteMapper);
     }

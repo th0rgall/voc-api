@@ -3,6 +3,9 @@ var chaiAsPromised = require("chai-as-promised");
 chai.use(chaiAsPromised);
 var expect = require('chai').expect;
 
+var username = 'tomtesterom';
+var password = 'zeeronveilig'; 
+
 describe('Vocabulary API', function() {
 
     var VocAPI = require('../vocabulary-api');
@@ -13,7 +16,8 @@ describe('Vocabulary API', function() {
     }
 
     before(() => {
-        return voc.login('tomtesterom', 'zeeronveilig').then(() => {clearLists();});
+        return voc.login(username, password).then(() => {//clearLists();
+        });
     })
 
     describe('#addToNewList() and #deleteList()', function() {
@@ -79,4 +83,20 @@ describe('Vocabulary API', function() {
             ).to.eventually.be.ok;
         });
     });
+
+    describe('#checkLogin()', function() {
+
+        it('should return false when not logged in', () => {
+            const vocA = new VocAPI();
+            return expect(vocA.logout().then(() => vocA.checkLogin())).to.be.rejectedWith('not logged in');
+        });
+
+        it('should return true when logged in', () => {
+            const vocB = new VocAPI();
+            
+            return expect(
+                vocB.login(username, password).then(() => vocB.checkLogin())
+            ).to.be.become(true);
+        });
+    })
 });
