@@ -516,7 +516,8 @@ class VocAPI {
             //console.log(result);
 
             let merge = (original, grab) => {
-                const newWord = {...original};
+                // const newWord = {...original}; // TODO EcmaScript 2018. Use Babel everywhere?
+                const newWord = _.clone(original);
                 newWord.word = grab;
                 return newWord;
             }
