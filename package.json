@@ -4,6 +4,7 @@
   "description": "Unofficial API for vocabulary.com. Manage lists and get definitions.",
   "main": "vocabulary-api.js",
   "scripts": {
+    "preinstall": "npm --prefix voc-dom install && npm --prefix voc-http install",
     "test": "./node_modules/.bin/mocha",
     "generate-docs": "node_modules/.bin/jsdoc --configure .jsdoc.json --verbose vocabulary-api.js"
   },
@@ -17,6 +18,7 @@
   "devDependencies": {
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
+    "cheerio": "^1.0.0-rc.2",
     "jsdoc": "^3.5.5",
     "minami": "^1.2.3",
     "mocha": "^5.2.0"

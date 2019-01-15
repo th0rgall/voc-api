@@ -4,12 +4,9 @@
     "http.js": "browser-http.js"
   },
   "version": "1.0.0",
-  "description": "",
+  "description": "Utility package for voc-api",
   "main": "http.js",
-  "scripts": {
-  },
-  "keywords": [],
-  "author": "",
+  "author": "Thor Galle",
   "license": "MIT",
   "dependencies": {
     "request": "^2.88.0",
