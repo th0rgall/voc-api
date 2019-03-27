@@ -1,6 +1,6 @@
 {
   "name": "voc-api",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Unofficial API for vocabulary.com. Manage lists and get definitions.",
   "main": "vocabulary-api.js",
   "scripts": {

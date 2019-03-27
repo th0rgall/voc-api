@@ -668,7 +668,7 @@ class VocAPI {
                     id: 'LIT', // this special id will allow the source to be shown in lists
                                         // probably stands for non-online 'literature'
                                         // found in voc.com js code
-                    href: w.locationString ? w.locationString : undefined,
+                    locator: w.location ? w.location : undefined,
                     date: date,
                     name: w.title ? w.title : 'Untitled source'
                 };
@@ -883,12 +883,9 @@ class VocAPI {
         }
 }
 
-// TODO: I'd like to remove this
-// the build process is not nice atm
-// could be changes if all files relied on import / export / require
-// but not possible, see notes in http 
-if (process.browser) {
-    window.VocAPI = VocAPI;
-} else {
+// TODO: maybe not the best way to have node/webpack/browser script compat
+if (!!module) {
     module.exports = VocAPI;
+} else if (window) {
+    window.VocAPI = VocAPI;
 }
