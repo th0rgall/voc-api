@@ -102,7 +102,7 @@ class VocAPI {
                     }
                 });
          } else {
-            return true;
+            return Promise.resolve(true);
         }
     }
 
