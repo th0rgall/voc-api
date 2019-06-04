@@ -647,7 +647,7 @@ class VocAPI {
             const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
             const hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
             const dateString = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()} at ${hhmm}.`;
-            const locationString = "";
+            let locationString = "";
             if (w.location) {
                 if (w.title) {
                     locationString = `Added from "${w.title}" (${w.location}) on ${dateString}`; 
