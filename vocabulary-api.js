@@ -1,6 +1,6 @@
 const http = require('voc-http');
 const parseDocument = require('voc-dom');
-const _ = require('underscore');
+const clone = require('lodash.clone');
 
 /** 
  * Unofficial Promise-based API interface for Vocabulary.com.
@@ -24,11 +24,11 @@ class VocAPI {
 
         // option defaults
         this.options = {
-            'annotMode': 'src-lit', // scr-lit: use example source with LIT id, comment: use comments
+            'exampleSourceMode': 'description',
             increaseImportanceForDuplicates: true, // TODO: implement feature
         };
 
-        _.extend(this.options, options ? options : {});
+        Object.assign(this.options, options ? options : {});
     }
 
     /**
@@ -82,15 +82,15 @@ class VocAPI {
      * Checks the login status.
      * Queries the account page. 
      * If a redirect to the login page occured, this promise fails. Otherwise it succeeds.
-     * @access
+     * @access public
      */
     checkLogin() {
         if (!this.loggedIn) {
             const requestUrl = `${this.URLBASE}/account`;
             return this.http('GET', requestUrl, {
-                referer: this.URLBASE,
-                responseType: 'document'
-            })
+                    referer: this.URLBASE,
+                    responseType: 'document'
+                })
                 .then(res => {
                     let doc = parseDocument(res.response);
                     if (doc.querySelector('body').classList.contains('top-section-account')) { 
@@ -517,7 +517,7 @@ class VocAPI {
 
             let merge = (original, grab) => {
                 // const newWord = {...original}; // TODO EcmaScript 2018. Use Babel everywhere?
-                const newWord = _.clone(original);
+                const newWord = clone(original);
                 newWord.word = grab;
                 return newWord;
             }
@@ -605,13 +605,26 @@ class VocAPI {
         .then(VocAPI.defaultResHandler);
     }
 
+    setExampleSourceMode(mode) {
+        if (/^(description|example|combined|none)$/.test(mode)) {
+            this.options.exampleSourceMode = mode;
+        }
+    }
+
     /**
      * Maps word objects from this API interface's format to voc.com's format
      * Adds some obvious info like date added
      * @access private
      * @param {Word} w word
+     * @param {string} mode one of "description", "example" or "none". 
+     * Decides how source link information should be saved in vocabulary.com.
+     * - "description" (default) adds a string like "Added from URL: https://en.wikipedia.org/wiki/Exigent_circumstance on Saturday 9 June 2018 at 18:17." to the description
+     * - "example" is a hacky and experimental option that inserts the title of the source as a direct example source. But caution: this is definitely not inteded by vocabulary.com. It looks nice, but links are not clickable.
+     * - "combined" both approaches are used simultaneously
+     * - "none" does not try to add any metadata about the source
+     * The global default setting can be set by using t
      */
-    wordMapper(w) {
+    wordMapper(w, sourceMode) {
         let nw = {
         "word": w.word,
         "lang": "en"
@@ -620,23 +633,28 @@ class VocAPI {
         const now = new Date();
         const pad = (c) => (c+'').length === 1 ? '0' + c : c+'';
 
-        // add example sentence
+        // add example
         if (w.example) {
             // limit example lenght to 500 to prevent errors (vocab restriction)
             // TODO: possibly, if > 500 chars, find word and  extract 500 chars around the word with ... [rest] word [rest] ...
             w.example = w.example.slice(0, 500);
             nw.example = { "text": w.example };
-        } else if (w.sentence) {
-            nw.example = { "text": w.sentence};
         }
         
         // puts date in word comment depending on options
-        if (!this.options || this.options.annotMode && this.options.annotMode === 'comment') {
+        if (!this.options || this.options.exampleSourceMode && (this.options.exampleSourceMode === 'description' || this.options.exampleSourceMode === 'combined')) {
             const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
             const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
             const hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
             const dateString = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()} at ${hhmm}.`;
-            const locationString = w.location ? `Added from URL: ${w.location} on ${dateString}` : undefined;
+            const locationString = "";
+            if (w.location) {
+                if (w.title) {
+                    locationString = `Added from "${w.title}" (${w.location}) on ${dateString}`; 
+                } else {
+                    locationString = `Added from URL: ${w.location} on ${dateString}`;
+                }
+            }
             const isolatedDateString = `Added on ${dateString}`;
             
             // add description and URL if present
@@ -655,15 +673,16 @@ class VocAPI {
                 }
             }
         // puts date in source a source object
-        } else if (this.options.annotMode && this.options.annotMode === 'src-lit') {
+        }
+        
+        if (this.options.exampleSourceMode && (this.options.exampleSourceMode === 'example' || this.options.exampleSourceMode === 'combined')) {
             const date = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}`;
-            let example = {};
 
             if (w.description) {
                 nw.description = w.description;
             }
 
-            if (w.example || w.sentence) {
+            if (w.example) {
                 nw.example.source = {
                     id: 'LIT', // this special id will allow the source to be shown in lists
                                         // probably stands for non-online 'literature'
@@ -684,12 +703,48 @@ class VocAPI {
     }
 
     /**
-     * @typedef {Object} Word
+     * @typedef {Object} Word Voc API's inbound representation of a word. This is what you give to the API.
      * @property {string} word the word
      * @property {string} [location] URL location of the word
      * @property {string} [description] description to be added to be attached to the word in a word list
      * @property {string} [example] example or source text containing the word
+     * @property {string} [title] the title of the web page that contained the word
      */
+
+    /** 
+     * @typedef {Object} VocExample API's detailed outbound example representation.
+     * @property {string} text the example text
+     * @property {number[]} offsets an array of offsets that delimit the word in the text. 0-indexed, start inclusive, end exclusive.
+     */
+
+     /**
+      * @typedef {Object} VocWord Voc API's detailed outbound word representation.
+      * This is a direct mapping of Vocabulary.com's API
+      * @property {string} word the word
+      * @property {lang} lang the language
+      * @property {string} description description 
+      * @property {VocExample} example example object
+      * @property {string} shortdefinition a short definition
+      * @property {string} definition a longer definition
+      * @property {string[]} audio an array of audio codes
+      * @property {string} ffreq I have no clue
+      */
+
+    /** 
+      * @typedef {Object} VocList Voc API's detailed outbound representation of a list.
+      * This is a direct mapping of Vocabulary.com's API
+      * @property {number} wordlistid the word list id
+      * @property {string} name the title of the list
+      * @property {string} description the description of the list
+      * @property {VocWord[]} words an array of words in Vocabulary.com's format 
+      * @property {boolean} shared whether the list is shared (public) or not (private) 
+      * @property {string} createdate example object
+      * @property {string} modifieddate a short definition
+      * @property {number} wordcount the count of words in the list
+      * @property {number} learnable the count of learnable words in the list
+      * @property {boolean} unlearnable the count of unlearnable words in the list
+      * @property {boolean} owner whether the requester is the owner of the list
+      */
 
     /** 
     * Add a given list to an existing list, given by name. The first (most recent) list with that name will be used. 
@@ -712,7 +767,7 @@ class VocAPI {
         if (words && words.length === 1) {
             let inword = words[0];
             return this.correctWord(inword.word).then((word) => {
-                let outword = _.extend({}, inword);
+                let outword = Object.assign({}, inword);
                 if (inword.word !== word) {
                     console.log(`${inword.word} corrected to ${word}`);
                     outword.word = word;
@@ -834,8 +889,8 @@ class VocAPI {
 
     /**
      * Gets a list of words
-     * @param {String} listId the ID of the list to get 
-     * @returns {Object[]} a list of vocabulary.com word objects
+     * @param {string} listId the ID of the list to get 
+     * @returns {VocList} vocabulary.com word list object with a key "words" for the objects and other metadata
      */
     getList(listId) {
         // TODO
@@ -862,6 +917,7 @@ class VocAPI {
 
     /**
      * @param {String} name name of the list
+     * @returns {VocList} the requested list
      */
     getListByName(name) {
         // TODO: test
