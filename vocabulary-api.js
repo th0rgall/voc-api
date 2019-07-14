@@ -244,9 +244,25 @@ class VocAPI {
         })
     }
 
+      /** 
+      * @typedef {Object} VocListDescription Voc API's detailed outbound representation of a list.
+      * This is a direct mapping of Vocabulary.com's API
+      * @property {number} wordlistid the word list id
+      * @property {string} name the title of the list
+      * @property {string} description the description of the list
+      * @property {boolean} shared whether the list is shared (public) or not (private) 
+      * @property {string} createdate date the list was created
+      * @property {string} modifieddate date the list was modified
+      * @property {string} activitydate date the list was last played
+      * @property {number} wordcount the count of words in the list
+      * @property {boolean} owner whether the requester is the owner of the list
+      * @property {number} p progress of learning this list
+      * @property {number} ap progress of the learning activity on this list (guessed)
+      */
+
     /**
      * Returns a list of the lists of the logged in user.
-     * @returns {Object[]} a list of word lists. Proper return format documentaiton TODO, try it out & see what happens!
+     * @returns {VocListDescription[]} a list of word lists. Proper return format documentation TODO, try it out & see what happens!
      */
     getLists() {
         /* example output
@@ -287,7 +303,7 @@ class VocAPI {
     /**
      * Gets the learning progress of a word
      * @param {String} word the word for which to retrieve progress
-     * @returns {Object} progress object. Proper return format documentaiton TODO, try it out & see what happens! 
+     * @returns {Object} progress object. Proper return format documentation TODO, try it out & see what happens! 
      */
     getProgress(word) {
         return this.http("POST", `${this.URLBASE}/progress/progress.json`, {
@@ -650,7 +666,7 @@ class VocAPI {
             let locationString = "";
             if (w.location) {
                 if (w.title) {
-                    locationString = `Added from "${w.title}" (${w.location}) on ${dateString}`; 
+                    locationString = `Added from "${w.title}" (${w.location.trim()}) on ${dateString}`; 
                 } else {
                     locationString = `Added from URL: ${w.location} on ${dateString}`;
                 }

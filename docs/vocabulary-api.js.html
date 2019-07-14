@@ -285,9 +285,25 @@ class VocAPI {
         })
     }
 
+      /** 
+      * @typedef {Object} VocListDescription Voc API's detailed outbound representation of a list.
+      * This is a direct mapping of Vocabulary.com's API
+      * @property {number} wordlistid the word list id
+      * @property {string} name the title of the list
+      * @property {string} description the description of the list
+      * @property {boolean} shared whether the list is shared (public) or not (private) 
+      * @property {string} createdate date the list was created
+      * @property {string} modifieddate date the list was modified
+      * @property {string} activitydate date the list was last played
+      * @property {number} wordcount the count of words in the list
+      * @property {boolean} owner whether the requester is the owner of the list
+      * @property {number} p progress of learning this list
+      * @property {number} ap progress of the learning activity on this list (guessed)
+      */
+
     /**
      * Returns a list of the lists of the logged in user.
-     * @returns {Object[]} a list of word lists. Proper return format documentaiton TODO, try it out &amp; see what happens!
+     * @returns {VocListDescription[]} a list of word lists. Proper return format documentation TODO, try it out &amp; see what happens!
      */
     getLists() {
         /* example output
@@ -328,7 +344,7 @@ class VocAPI {
     /**
      * Gets the learning progress of a word
      * @param {String} word the word for which to retrieve progress
-     * @returns {Object} progress object. Proper return format documentaiton TODO, try it out &amp; see what happens! 
+     * @returns {Object} progress object. Proper return format documentation TODO, try it out &amp; see what happens! 
      */
     getProgress(word) {
         return this.http("POST", `${this.URLBASE}/progress/progress.json`, {
@@ -647,7 +663,7 @@ class VocAPI {
     }
 
     setExampleSourceMode(mode) {
-        if (/^(description|example|none)$/.test(mode)) {
+        if (/^(description|example|combined|none)$/.test(mode)) {
             this.options.exampleSourceMode = mode;
         }
     }
@@ -659,8 +675,9 @@ class VocAPI {
      * @param {Word} w word
      * @param {string} mode one of "description", "example" or "none". 
      * Decides how source link information should be saved in vocabulary.com.
-     * - "description" adds a string like "Added from URL: https://en.wikipedia.org/wiki/Exigent_circumstance on Saturday 9 June 2018 at 18:17." to the description
+     * - "description" (default) adds a string like "Added from URL: https://en.wikipedia.org/wiki/Exigent_circumstance on Saturday 9 June 2018 at 18:17." to the description
      * - "example" is a hacky and experimental option that inserts the title of the source as a direct example source. But caution: this is definitely not inteded by vocabulary.com. It looks nice, but links are not clickable.
+     * - "combined" both approaches are used simultaneously
      * - "none" does not try to add any metadata about the source
      * The global default setting can be set by using t
      */
@@ -673,23 +690,28 @@ class VocAPI {
         const now = new Date();
         const pad = (c) => (c+'').length === 1 ? '0' + c : c+'';
 
-        // add example sentence
+        // add example
         if (w.example) {
             // limit example lenght to 500 to prevent errors (vocab restriction)
             // TODO: possibly, if > 500 chars, find word and  extract 500 chars around the word with ... [rest] word [rest] ...
             w.example = w.example.slice(0, 500);
             nw.example = { "text": w.example };
-        } else if (w.sentence) {
-            nw.example = { "text": w.sentence};
         }
         
         // puts date in word comment depending on options
-        if (!this.options || this.options.exampleSourceMode &amp;&amp; this.options.exampleSourceMode === 'comment') {
+        if (!this.options || this.options.exampleSourceMode &amp;&amp; (this.options.exampleSourceMode === 'description' || this.options.exampleSourceMode === 'combined')) {
             const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
             const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
             const hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
             const dateString = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()} at ${hhmm}.`;
-            const locationString = w.location ? `Added from URL: ${w.location} on ${dateString}` : undefined;
+            let locationString = "";
+            if (w.location) {
+                if (w.title) {
+                    locationString = `Added from "${w.title}" (${w.location.trim()}) on ${dateString}`; 
+                } else {
+                    locationString = `Added from URL: ${w.location} on ${dateString}`;
+                }
+            }
             const isolatedDateString = `Added on ${dateString}`;
             
             // add description and URL if present
@@ -708,15 +730,16 @@ class VocAPI {
                 }
             }
         // puts date in source a source object
-        } else if (this.options.exampleSourceMode &amp;&amp; this.options.exampleSourceMode === 'src-lit') {
+        }
+        
+        if (this.options.exampleSourceMode &amp;&amp; (this.options.exampleSourceMode === 'example' || this.options.exampleSourceMode === 'combined')) {
             const date = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}`;
-            let example = {};
 
             if (w.description) {
                 nw.description = w.description;
             }
 
-            if (w.example || w.sentence) {
+            if (w.example) {
                 nw.example.source = {
                     id: 'LIT', // this special id will allow the source to be shown in lists
                                         // probably stands for non-online 'literature'
@@ -990,7 +1013,7 @@ if (!!module) {
 <br class="clear">
 
 <footer>
-    Generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Tue Jun 04 2019 20:58:59 GMT+0300 (Eastern European Summer Time) using the Minami theme.
+    Generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Sun Jul 14 2019 19:44:58 GMT+0300 (Eastern European Summer Time) using the Minami theme.
 </footer>
 
 <script>prettyPrint();</script>

@@ -308,7 +308,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line370">line 370</a>
+        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line386">line 386</a>
     </li></ul></dd>
     
 
@@ -461,7 +461,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line707">line 707</a>
+        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line730">line 730</a>
     </li></ul></dd>
     
 
@@ -840,7 +840,386 @@ This is a direct mapping of Vocabulary.com's API
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line726">line 726</a>
+        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line749">line 749</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type"><code>Object</code></span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</div>
+
+            
+                
+<div class="section-members">
+<h4 class="name" id="VocListDescription">VocListDescription</h4>
+
+
+
+
+<div class="description">
+    Voc API's detailed outbound representation of a list.
+This is a direct mapping of Vocabulary.com's API
+</div>
+
+
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>wordlistid</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>number</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the word list id</td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>string</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the title of the list</td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>description</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>string</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the description of the list</td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>shared</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>boolean</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">whether the list is shared (public) or not (private)</td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>createdate</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>string</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">date the list was created</td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>modifieddate</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>string</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">date the list was modified</td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>activitydate</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>string</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">date the list was last played</td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>wordcount</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>number</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the count of words in the list</td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>owner</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>boolean</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">whether the requester is the owner of the list</td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>p</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>number</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">progress of learning this list</td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>ap</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>number</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">progress of the learning activity on this list (guessed)</td>
+        </tr>
+
+        
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line247">line 247</a>
     </li></ul></dd>
     
 
@@ -1144,7 +1523,7 @@ This is a direct mapping of Vocabulary.com's API
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line713">line 713</a>
+        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line736">line 736</a>
     </li></ul></dd>
     
 
@@ -1412,7 +1791,7 @@ This is a direct mapping of Vocabulary.com's API
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line698">line 698</a>
+        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line721">line 721</a>
     </li></ul></dd>
     
 
@@ -1561,7 +1940,7 @@ This is a direct mapping of Vocabulary.com's API
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line465">line 465</a>
+        <a href="vocabulary-api.js.html">vocabulary-api.js</a>, <a href="vocabulary-api.js.html#line481">line 481</a>
     </li></ul></dd>
     
 
@@ -1606,7 +1985,7 @@ This is a direct mapping of Vocabulary.com's API
 <br class="clear">
 
 <footer>
-    Generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Tue Jun 04 2019 20:58:59 GMT+0300 (Eastern European Summer Time) using the Minami theme.
+    Generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Sun Jul 14 2019 19:44:58 GMT+0300 (Eastern European Summer Time) using the Minami theme.
 </footer>
 
 <script>prettyPrint();</script>
