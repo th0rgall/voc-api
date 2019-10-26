@@ -158,7 +158,7 @@ class VocAPI {
     /**
      * Gets definition of a word. 
      * @param {String} word the word to get a definition for
-     * @returns {Definition} definition in the format. Proper return format documentation TODO, try it out & see what happens!
+     * @returns {Definition} definition in the format. Proper return format documentation TODO, check the code
      */
     getDefinition(word) 
     {
