@@ -162,39 +162,38 @@ class VocAPI {
      */
     getDefinition(word) 
     {
-        /* TODO: Response target spec
-        *  {
-        *  "word": string,
-        *  "definition", string      // primary definition (as given by the meta description tag)
-        *  "description": string     // the long format description unique to Vocabulary.com
-        *  "audioURL": string        // of the form https://audio.vocab.com/1.0/us/C/12RWPXAD427B5.mp3
-        *                               // with C/.... being the code, in data-audio on the element
-        *                               // document.querySelector('.audio')
-        *  "meanings": [       // categories of meanings
-        *      {                   // specific meaning
-        *          "forms": [          // different forms
-        *              {
-        *                  "pos": string,          // part of speech: v, n, ...                
-        *                  "definition": string,
-        *                  "synonyms": [ synonym ],           // TODO: kunnen ook meerdere zijn?
-        *                  "subtypes": [                      // subtypes of the word
-        *                      { "words": [ string ],   // subtypes
-        *                        "defintition": string:
-        *                      }
-        *                  "supertypes":                   // TODO: only 1?
-        *                  {
-        *                       "words": [ string ]
-        *                       "definition": string
-        *                  }
-        *              }
-        *            ]
-        *         }     
-        *      ]
-        *    }
-        *  ]
-        * }
-        * Primary meanings are, for every meaning, the first form of a given part of speech
-        */
+    // response format 
+    //     {
+    //         "word": "string",
+    //         "definition": "string", // primary definition (as given by the meta description tag)
+    //         "description": "string", // the long format description unique to Vocabulary.com 
+    //         "audioURL": "string", // of the form https://audio.vocab.com/1.0/us/C/12RWPXAD427B5.mp3
+    //                                 // with C/.... being the code, in data-audio on the element
+    //                                 // document.querySelector('.audio')
+    //         "meanings": [ // groups of meanings
+    //                 [       // meaning group
+    //                         { // meaning "ordinal"
+    //                                 "definition": "string", 
+    //                                 "pos": "string",          // part of speech: noun
+    //                                 "synonyms": [ "string" ], 
+    //                                 "subtypes": [             // subtypes of the word
+    //                                         {
+    //                                                 "word": ["string"],   // subtype synonyms
+    //                                                 "definition": "string" 
+    //                                         }
+    //                                 ],
+    //                                 "supertypes":  [                      // subtypes of the word
+    //                                         {
+    //                                                 "word": ["string"],   // supertype synonyms
+    //                                                 "definition": "string" 
+    //                                         }
+    //                                 ],
+    //                         }
+    
+    //                 ]
+    //         ]
+    // }
+
         return this.http('GET', `${this.URLBASE}/dictionary/${word}`, {
             referer: `${this.URLBASE}/dictionary`,
             responseType: 'document'
@@ -216,29 +215,58 @@ class VocAPI {
                 .querySelector('.long')
                 .textContent;
 
-            outObject.meanings = [];
+            // get meanings
+            outObject.meanings = Array.from(doc.querySelectorAll(".group")).map(group => 
+                Array.from(group.querySelectorAll(".ordinal")).map(ordinal => {
 
-            // full meanings, not primary
-            // TODO: tag primary
-            // TODO: finish
-            const meanings = doc.querySelectorAll('.sense');
-            for (let i = 0; i < meanings.length; i++) {
-                let m = meanings[i];
-                const mOut = {};
+                    // loop instances (synonyms, types, supertypes)
+                    let instances = Array.from(ordinal.querySelectorAll("dl.instances")).reduce( (acc, instance) => 
+                        {
+                            instanceWordMapper = (root) => Array.from(root.querySelectorAll("a.word")).map(word => word.textContent);
+                            wordDefList = () => Array.from(instance.querySelectorAll("dd")).map(wordDef => {
+                                // test for word content
+                                if (wordDef.querySelector("a.word")) {
+                                        return ({
+                                            "word": instanceWordMapper(wordDef),
+                                            "definition": wordDef.querySelector(".definition").textContent
+                                        });
+                                    } else {
+                                        return null;
+                                    }
+                                }).filter(a => a);
+                            let title = instance.querySelector("dt");
+                            if (title) {
+                                title = title.textContent;
+                                if (title.match(/Synonyms/)) {
+                                    return {...acc, "synonyms": instanceWordMapper(instance) }
+                                } else if (title.match(/Types/)) {
+                                    return {...acc, "subtypes": wordDefList() };
+                                } else if (title.match(/Type of/)) {
+                                    return {...acc, "supertypes": wordDefList() };
+                                } else if (title === "") { 
+                                    // extra synonym with definition (assumed), for now we drop the def
+                                    // assumed to come after synonyms, may give problems
+                                    // eg the first in https://www.vocabulary.com/dictionary/subsidiary
+                                    return {...acc, "synonyms": [...acc.synonyms, ...instanceWordMapper(instance)] }
+                                } else {
+                                    return acc;
+                                }
+                            } else {
+                                return acc;
+                            }
+                        }, {} 
+                    );
 
-                // first of a meaning group
-                // if (Array.prototype.indexOf.call(m.parentElement.children, m) === 0) {
-                //     mOut.primary = true;
-                // } TODO does not work with groups
-
-                mOut.synsetid = /^s(\d+)$/.exec(m.id)[1];
-                const d = m.querySelector('.definition');
-                mOut.definition = d.childNodes[2].textContent.trim();
-
-                
-
-                outObject.meanings.push(mOut);
-            }
+                    // pos anchor
+                    const anchor = ordinal.querySelector(".anchor");
+                    return {
+                            definition: anchor.nextSibling.textContent.trim(),
+                            pos: anchor.title,
+                            synsetid: anchor.name,
+                            ...instances
+                        };
+                    })
+            );
 
             return outObject;
         })
