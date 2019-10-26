@@ -390,6 +390,7 @@ class VocAPI {
      * @property {String} synsetid id that identifies this particular meaning
      * @property {String} lang language, always "en" so far
      * @property {number} frequency Frequency of the usage of this meaning (possibly, not sure)
+     * @property {String} definition the short definition of this meaning
      */
 
      /**
