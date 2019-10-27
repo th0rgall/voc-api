@@ -1,7 +1,12 @@
+const util = require('util')
+const fs = require('fs');
 var chai = require('chai');
 var chaiAsPromised = require("chai-as-promised");
 chai.use(chaiAsPromised);
 var expect = require('chai').expect;
+
+// https://stackoverflow.com/a/10729284/4973029
+const logFully = toLog => console.log(util.inspect(toLog, false, null, true));
 
 var username = 'tomtesterom';
 var password = 'zeeronveilig'; 
@@ -101,6 +106,23 @@ describe('#checkLogin()', function() {
         return expect(
             vocB.login(username, password).then(() => vocB.checkLogin())
         ).to.be.become(true);
+    });
+});
+
+describe("#getDefinition()", function() {
+    // regression tests by comparing to manually verified complex object
+    let cultureSaved;
+    before("read 'culture' json", function() {
+        return new Promise((res, rej) => fs.readFile('./test/culture.json', (err, data) => (err ? rej(err) : res(data))))
+                .then(JSON.parse)
+                .then(obj => cultureSaved = obj);
+    });
+
+    it("should show all information", () => {
+        // voc.getDefinition("coin").then(logFully);
+        // voc.getDefinition("culture").then(JSON.stringify).then(r => new Promise((res, rej) => fs.writeFile('./test/lastResponse.json', r, res)));
+        // or .to.have.deep.members
+        return voc.getDefinition("culture").then(culture => expect(culture).to.deep.equal(cultureSaved)); 
     });
 });
 

@@ -163,6 +163,7 @@ class VocAPI {
     getDefinition(word) 
     {
     // response format 
+    // primary meanings (per group) are the first sense of every ordinal
     //     {
     //         "word": "string",
     //         "definition": "string", // primary definition (as given by the meta description tag)
@@ -172,24 +173,25 @@ class VocAPI {
     //                                 // document.querySelector('.audio')
     //         "meanings": [ // groups of meanings
     //                 [       // meaning group
-    //                         { // meaning "ordinal"
-    //                                 "definition": "string", 
-    //                                 "pos": "string",          // part of speech: noun
-    //                                 "synonyms": [ "string" ], 
-    //                                 "subtypes": [             // subtypes of the word
-    //                                         {
-    //                                                 "word": ["string"],   // subtype synonyms
-    //                                                 "definition": "string" 
-    //                                         }
-    //                                 ],
-    //                                 "supertypes":  [                      // subtypes of the word
-    //                                         {
-    //                                                 "word": ["string"],   // supertype synonyms
-    //                                                 "definition": "string" 
-    //                                         }
-    //                                 ],
-    //                         }
-    
+    //                      [  // sense group
+    //                             { // meaning "ordinal"
+    //                                     "definition": "string", 
+    //                                     "pos": "string",          // part of speech: noun
+    //                                     "synonyms": [ "string" ], 
+    //                                     "subtypes": [             // subtypes of the word
+    //                                             {
+    //                                                     "word": ["string"],   // subtype synonyms
+    //                                                     "definition": "string" 
+    //                                             }
+    //                                     ],
+    //                                     "supertypes":  [                      // subtypes of the word
+    //                                             {
+    //                                                     "word": ["string"],   // supertype synonyms
+    //                                                     "definition": "string" 
+    //                                             }
+    //                                     ],
+    //                             }
+    //                         ]
     //                 ]
     //         ]
     // }
@@ -216,56 +218,57 @@ class VocAPI {
                 .textContent;
 
             // get meanings
-            outObject.meanings = Array.from(doc.querySelectorAll(".group")).map(group => 
-                Array.from(group.querySelectorAll(".ordinal")).map(ordinal => {
-
-                    // loop instances (synonyms, types, supertypes)
-                    let instances = Array.from(ordinal.querySelectorAll("dl.instances")).reduce( (acc, instance) => 
-                        {
-                            instanceWordMapper = (root) => Array.from(root.querySelectorAll("a.word")).map(word => word.textContent);
-                            wordDefList = () => Array.from(instance.querySelectorAll("dd")).map(wordDef => {
-                                // test for word content
-                                if (wordDef.querySelector("a.word")) {
-                                        return ({
-                                            "word": instanceWordMapper(wordDef),
-                                            "definition": wordDef.querySelector(".definition").textContent
-                                        });
+            outObject.meanings = Array.from(doc.querySelectorAll(".group")).map(group => // 1st array level: groups
+                Array.from(group.querySelectorAll(".ordinal")).map(ordinal =>            // 2nd array level: ordinals
+                    Array.from(ordinal.querySelectorAll(".sense")).map(sense => {         // 3rd array level: senses (~ meaning)
+                        // loop instances (synonyms, types, supertypes)
+                        let instances = Array.from(sense.querySelectorAll("dl.instances")).reduce( (acc, instance) => 
+                            {
+                                const instanceWordMapper = (root) => Array.from(root.querySelectorAll("a.word")).map(word => word.textContent);
+                                const wordDefList = () => Array.from(instance.querySelectorAll("dd")).map(wordDef => {
+                                    // test for word content
+                                    if (wordDef.querySelector("a.word")) {
+                                            return ({
+                                                "word": instanceWordMapper(wordDef),
+                                                "definition": wordDef.querySelector(".definition").textContent
+                                            });
+                                        } else {
+                                            return null;
+                                        }
+                                    }).filter(a => a);
+                                let title = instance.querySelector("dt");
+                                if (title) {
+                                    title = title.textContent;
+                                    if (title.match(/Synonyms/)) {
+                                        return {...acc, "synonyms": instanceWordMapper(instance) }
+                                    } else if (title.match(/Types/)) {
+                                        return {...acc, "subtypes": wordDefList() };
+                                    } else if (title.match(/Type of/)) {
+                                        return {...acc, "supertypes": wordDefList() };
+                                    } else if (title === "") { 
+                                        // extra synonym with definition (assumed), for now we drop the def
+                                        // assumed to come after synonyms, may give problems
+                                        // eg the first in https://www.vocabulary.com/dictionary/subsidiary
+                                        return {...acc, "synonyms": [...acc.synonyms, ...instanceWordMapper(instance)] }
                                     } else {
-                                        return null;
+                                        return acc;
                                     }
-                                }).filter(a => a);
-                            let title = instance.querySelector("dt");
-                            if (title) {
-                                title = title.textContent;
-                                if (title.match(/Synonyms/)) {
-                                    return {...acc, "synonyms": instanceWordMapper(instance) }
-                                } else if (title.match(/Types/)) {
-                                    return {...acc, "subtypes": wordDefList() };
-                                } else if (title.match(/Type of/)) {
-                                    return {...acc, "supertypes": wordDefList() };
-                                } else if (title === "") { 
-                                    // extra synonym with definition (assumed), for now we drop the def
-                                    // assumed to come after synonyms, may give problems
-                                    // eg the first in https://www.vocabulary.com/dictionary/subsidiary
-                                    return {...acc, "synonyms": [...acc.synonyms, ...instanceWordMapper(instance)] }
                                 } else {
                                     return acc;
                                 }
-                            } else {
-                                return acc;
-                            }
-                        }, {} 
-                    );
+                            }, {} 
+                        );
 
-                    // pos anchor
-                    const anchor = ordinal.querySelector(".anchor");
-                    return {
-                            definition: anchor.nextSibling.textContent.trim(),
-                            pos: anchor.title,
-                            synsetid: anchor.name,
-                            ...instances
-                        };
-                    })
+                        // pos anchor
+                        const anchor = sense.querySelector(".anchor");
+                        return {
+                                definition: anchor.nextSibling.textContent.trim(),
+                                pos: anchor.title,
+                                synsetid: anchor.name,
+                                ...instances
+                            };
+                        }) // end of a sense
+                )
             );
 
             return outObject;
