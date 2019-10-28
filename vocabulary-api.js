@@ -1,6 +1,8 @@
 const http = require('voc-http');
 const parseDocument = require('voc-dom');
-const clone = require('lodash.clone');
+const clone = require('lodash/clone');
+const get = require('lodash/get');
+const getn = (o, p) => get(o, p, null);
 
 /** 
  * Unofficial Promise-based API interface for Vocabulary.com.
@@ -173,8 +175,8 @@ class VocAPI {
     //                                 // document.querySelector('.audio')
     //         "meanings": [ // groups of meanings
     //                 [       // meaning group
-    //                      [  // sense group
-    //                             { // meaning "ordinal"
+    //                      [  // ordinal group
+    //                             { // sense 
     //                                     "definition": "string", 
     //                                     "pos": "string",          // part of speech: noun
     //                                     "synonyms": [ "string" ], 
@@ -201,21 +203,16 @@ class VocAPI {
             responseType: 'document'
         }).then(({response}) => {
             const doc = parseDocument(response);
-
-            const outObject = {};
-            outObject.word = word;
-
             const topPageEl = doc.querySelector('.wordPage')
-            outObject.lang = topPageEl.dataset.lang;
-            outObject.learnable = topPageEl.dataset.learnable;
 
-            outObject.short = doc
-                .querySelector('.short') // returns p
-                .textContent;
-
-            outObject.long = doc
-                .querySelector('.long')
-                .textContent;
+            const outObject = {
+                word,
+                lang: getn(topPageEl, 'dataset.lang'),
+                learnable: getn(topPageEl, 'dataset.learnable'),
+                // they don't always exist
+                short: getn(doc.querySelector('.short'), 'textContent'),  // returns p
+                long: getn(doc.querySelector('.long'), 'textContent') // return p
+            };
 
             // get meanings
             outObject.meanings = Array.from(doc.querySelectorAll(".group")).map(group => // 1st array level: groups
@@ -261,10 +258,11 @@ class VocAPI {
 
                         // pos anchor
                         const anchor = sense.querySelector(".anchor");
+                        const synsetid = /^s(\d*)/.exec(anchor.name)[1]; // format s12345
                         return {
                                 definition: anchor.nextSibling.textContent.trim(),
                                 pos: anchor.title,
-                                synsetid: anchor.name,
+                                synsetid,
                                 ...instances
                             };
                         }) // end of a sense
@@ -461,6 +459,9 @@ class VocAPI {
      * @param {String} word the word to correct
      */
     correctWord(word) {
+        if (!word) {
+            throw new Error("Provide a valid word");
+        }
         return this.autoComplete(word).then(suggestions => {
             if (suggestions) {
                 return Promise.resolve(VocAPI.getSimilarFrom(suggestions.map(w => w.word), word));

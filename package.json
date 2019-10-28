@@ -1,6 +1,6 @@
 {
   "name": "voc-api",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "Unofficial API for vocabulary.com. Manage lists and get definitions.",
   "main": "vocabulary-api.js",
   "scripts": {
@@ -11,7 +11,6 @@
   "license": "MIT",
   "dependencies": {
     "lodash": "^4.17.13",
-    "lodash.clone": "^4.5.0",
     "voc-dom": "th0rgall/voc-dom",
     "voc-http": "th0rgall/voc-http"
   },

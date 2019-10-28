@@ -10,7 +10,7 @@
                 {
                     "definition": "all the knowledge and values shared by a society",
                     "pos": "noun",
-                    "synsetid": "s32730",
+                    "synsetid": "32730",
                     "synonyms": [
                         "acculturation"
                     ],
@@ -36,7 +36,7 @@
                 {
                     "definition": "a particular society at a particular time and place",
                     "pos": "noun",
-                    "synsetid": "s45155",
+                    "synsetid": "45155",
                     "synonyms": [
                         "civilisation",
                         "civilization"
@@ -131,7 +131,7 @@
                 {
                     "definition": "the attitudes and behavior that are characteristic of a particular social group or organization",
                     "pos": "noun",
-                    "synsetid": "s33540",
+                    "synsetid": "33540",
                     "subtypes": [
                         {
                             "word": [
@@ -165,7 +165,7 @@
                 {
                     "definition": "the tastes in art and manners that are favored by a social group",
                     "pos": "noun",
-                    "synsetid": "s31584",
+                    "synsetid": "31584",
                     "subtypes": [
                         {
                             "word": [
@@ -211,7 +211,7 @@
                 {
                     "definition": "(biology) the growing of microorganisms in a nutrient medium (such as gelatin or agar)",
                     "pos": "noun",
-                    "synsetid": "s4701",
+                    "synsetid": "4701",
                     "subtypes": [
                         {
                             "word": [
@@ -239,7 +239,7 @@
                 {
                     "definition": "grow in a special preparation",
                     "pos": "verb",
-                    "synsetid": "s83283",
+                    "synsetid": "83283",
                     "supertypes": [
                         {
                             "word": [
@@ -256,7 +256,7 @@
                 {
                     "definition": "the raising of plants or animals",
                     "pos": "noun",
-                    "synsetid": "s4684",
+                    "synsetid": "4684",
                     "subtypes": [
                         {
                             "word": [
@@ -300,7 +300,7 @@
                 {
                     "definition": "a highly developed state of perfection; having a flawless or impeccable quality",
                     "pos": "noun",
-                    "synsetid": "s77457",
+                    "synsetid": "77457",
                     "synonyms": [
                         "cultivation",
                         "finish",

@@ -120,6 +120,7 @@ describe("#getDefinition()", function() {
 
     it("should show all information", () => {
         // voc.getDefinition("coin").then(logFully);
+        // voc.getDefinition("raffish").then(logFully);
         // voc.getDefinition("culture").then(JSON.stringify).then(r => new Promise((res, rej) => fs.writeFile('./test/lastResponse.json', r, res)));
         // or .to.have.deep.members
         return voc.getDefinition("culture").then(culture => expect(culture).to.deep.equal(cultureSaved)); 
