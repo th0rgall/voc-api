@@ -1,4 +1,4 @@
-const http = require('voc-http');
+const HttpRoot = require('voc-http');
 const parseDocument = require('voc-dom');
 const clone = require('lodash/clone');
 const get = require('lodash/get');
@@ -22,7 +22,8 @@ class VocAPI {
         this.listNameCache = {};
 
         this.loggedIn = false;
-        this.http = http;
+        this.httpRoot = new HttpRoot();
+        this.http = this.httpRoot.http.bind(this.httpRoot);
 
         // option defaults
         this.options = {
@@ -64,7 +65,18 @@ class VocAPI {
         return this.http('POST', `${this.URLBASE}/login/`, {
             referer: `${this.URLBASE}/login/`
         }, VocAPI.getFormData(formData)).then(VocAPI.defaultResHandler)
+            // default res handler will reject on a non-login
             .then((r) => {this.loggedIn = true; return r});
+    }
+
+    /**
+     * Log in using a cookie string (pre-install the cookie in the http module)
+     * Will overwrite currently used cookies
+     * @param {*} cookie 
+     */
+    loginCookie(cookie) {
+        this.httpRoot.setCookie(cookie); // synchronous via request (see code)
+        return this.checkLogin();
     }
 
     /**
@@ -90,11 +102,12 @@ class VocAPI {
         if (!this.loggedIn) {
             const requestUrl = `${this.URLBASE}/account`;
             return this.http('GET', requestUrl, {
-                    referer: this.URLBASE,
+                    // referer: this.URLBASE,
                     responseType: 'document'
                 })
                 .then(res => {
                     let doc = parseDocument(res.response);
+                    require('fs').writeFileSync('test/lastResponse.html', res.response);
                     if (doc.querySelector('body').classList.contains('top-section-account')) { 
                         // has classes 'loggedin' or 'loggedout'
                         this.loggedIn = true;

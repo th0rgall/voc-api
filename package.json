@@ -1,6 +1,6 @@
 {
   "name": "voc-api",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Unofficial API for vocabulary.com. Manage lists and get definitions.",
   "main": "vocabulary-api.js",
   "scripts": {
@@ -18,8 +18,10 @@
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "cheerio": "^1.0.0-rc.2",
+    "dotenv": "^8.2.0",
     "jsdoc": "^3.5.5",
     "minami": "^1.2.3",
-    "mocha": "^5.2.0"
+    "mocha": "^5.2.0",
+    "prettier": "^1.19.1"
   }
 }
