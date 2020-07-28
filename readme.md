@@ -16,7 +16,7 @@ npm install --save th0rgall/voc-api
 
 (note: this package is not published on NPM at the moment)
 
-Sample usage:
+Sample usage in a Node.js project:
 
 ```js
 const VocAPI = require("voc-api");
@@ -46,3 +46,9 @@ voc.login("<username>", "<password>").then(() => {
 For all features, check out the API reference.
 
 ## [API Reference](https://th0rgall.github.io/voc-api/VocAPI.html)
+
+## Usage in a web extension
+
+Make sure that your extension has host permissions for vocabulary.com, e.g. by adding `*://*.vocabulary.com/*` to your `manifest.json`.
+
+Refer to [voc-enhancer](https://github.com/th0rgall/voc-enhancer) for a web extension example that uses this API (the API was originally built for this extension). 
