@@ -2,4 +2,8 @@
 *.zip
 **/node_modules
 **/.git
+.env
+
+# only temporary logging purposes
+test/lastResponse.html
 
