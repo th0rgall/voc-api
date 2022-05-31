@@ -1,3 +1,5 @@
+_**Warning: this code has not been maintained for years and has several issues.** Most of it might still work, but I recommend you only use this repository for reference._
+
 # Vocabulary.com API
 
 This is an unofficial Javascript API for vocabulary.com. It can be used in Firefox/Chrome web extensions or Node.js projects.
